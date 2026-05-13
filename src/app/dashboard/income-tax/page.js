@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import React from "react";
 import { toast } from "react-toastify";
 import IncomeTaxForm from "../../../components/IncomeTaxForm";
+import IncomeTaxDocumentsSection from "../../../components/IncomeTaxDocumentsSection";
 
 export default function IncomeTaxPage() {
   const [incomeTaxRecords, setIncomeTaxRecords] = useState([]);
@@ -22,6 +23,9 @@ export default function IncomeTaxPage() {
     pan_card_no: "",
     password: "",
     assessment_year: [],
+    status: "Pending",
+    stage: "Document Pending",
+    note: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -72,23 +76,45 @@ export default function IncomeTaxPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (selectedFiles = []) => {
     if (!validateForm()) {
       return;
     }
 
     try {
-      const url = editingIncomeTax
-        ? "/api/income-tax"
-        : "/api/income-tax";
-      const method = editingIncomeTax ? "PUT" : "POST";
+      const formDataToSend = new FormData();
 
-      const payload = editingIncomeTax ? { ...formData, id: editingIncomeTax.id } : formData;
+      // Calculate default assessment year
+      const getCurrentYear = new Date().getFullYear();
+      const currentAssessmentYear = `${getCurrentYear}-${((getCurrentYear + 1) % 100).toString().padStart(2, '0')}`;
+
+      // Append all form fields
+      Object.keys(formData).forEach(key => {
+        if (key === 'assessment_year') {
+          const years = formData.assessment_year && formData.assessment_year.length > 0
+            ? formData.assessment_year
+            : [currentAssessmentYear];
+          formDataToSend.append(key, JSON.stringify(years));
+        } else {
+          formDataToSend.append(key, formData[key] || "");
+        }
+      });
+
+      if (editingIncomeTax) {
+        formDataToSend.append("id", editingIncomeTax.id);
+      }
+
+      // Append selected files
+      selectedFiles.forEach(file => {
+        formDataToSend.append("files", file);
+      });
+
+      const url = "/api/income-tax";
+      const method = editingIncomeTax ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formDataToSend,
       });
 
       const data = await response.json();
@@ -120,6 +146,9 @@ export default function IncomeTaxPage() {
       assessment_year: Array.isArray(incomeTax.assessment_year)
         ? incomeTax.assessment_year
         : [],
+      status: incomeTax.status || "Pending",
+      stage: incomeTax.stage || "Document Pending",
+      note: incomeTax.note || "",
     });
     setShowForm(true);
   };
@@ -154,6 +183,9 @@ export default function IncomeTaxPage() {
       pan_card_no: "",
       password: "",
       assessment_year: [],
+      status: "Pending",
+      stage: "Document Pending",
+      note: "",
     });
     setErrors({});
     setEditingIncomeTax(null);
@@ -178,9 +210,9 @@ export default function IncomeTaxPage() {
 
   return (
     <div className="">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 overflow-x-auto pb-2">
         {/* Status Filter */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 whitespace-nowrap">
           <button
             onClick={() => setStatusFilter("ALL")}
             className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "ALL"
@@ -189,6 +221,33 @@ export default function IncomeTaxPage() {
               }`}
           >
             All
+          </button>
+          <button
+            onClick={() => setStatusFilter("Document Pending")}
+            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "Document Pending"
+              ? "bg-[#dfc797] text-[#17312d]"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+          >
+            Document Pending
+          </button>
+          <button
+            onClick={() => setStatusFilter("In-Progress")}
+            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "In-Progress"
+              ? "bg-[#dfc797] text-[#17312d]"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+          >
+            In-Progress
+          </button>
+          <button
+            onClick={() => setStatusFilter("Complate")}
+            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "Complate"
+              ? "bg-[#dfc797] text-[#17312d]"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+          >
+            Complete
           </button>
         </div>
         <button
@@ -230,122 +289,155 @@ export default function IncomeTaxPage() {
                   PAN No
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Stage
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {incomeTaxRecords.length === 0 ? (
+              {incomeTaxRecords.filter(record => statusFilter === "ALL" || record.stage === statusFilter).length === 0 ? (
                 <tr>
                   <td
-                    colSpan="5"
+                    colSpan="6"
                     className="px-4 py-8 text-center text-gray-500"
                   >
-                    No Income Tax records found. Click "Add New Income Tax" to get started.
+                    No Income Tax records found.
                   </td>
                 </tr>
               ) : (
-                incomeTaxRecords.map((incomeTax) => (
-                  <React.Fragment key={incomeTax.id}>
-                    <tr
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => toggleIncomeTaxDetails(incomeTax.id)}
-                    >
-                      <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
-                        {incomeTax.number_series}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {incomeTax.name}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {incomeTax.phone_no}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {incomeTax.pan_card_no ? incomeTax.pan_card_no.toUpperCase() : "-"}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(incomeTax);
-                            }}
-                            className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(incomeTax.id);
-                            }}
-                            className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {expandedIncomeTax === incomeTax.id && (
-                      <tr className="animate-in slide-in-from-top-1 duration-300">
-                        <td colSpan="5" className="px-0 py-0">
-                          <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                              {/* Personal Information */}
-                              <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
-                                <div className="space-y-2">
-                                  <div>
-                                    <p className="text-xs text-gray-500">Name</p>
-                                    <p className="font-medium text-gray-900">{incomeTax.name}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">Phone</p>
-                                    <p className="font-medium text-gray-900">{incomeTax.phone_no}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">PAN Card</p>
-                                    <p className="font-medium text-gray-900">{incomeTax.pan_card_no ? incomeTax.pan_card_no.toUpperCase() : "-"}</p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Assessment Year Information */}
-                              <div className="animate-in fade-in-50 duration-500 delay-200">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Assessment Information</h4>
-                                <div className="space-y-2">
-                                  <div>
-                                    <p className="text-xs text-gray-500">Assessment Years</p>
-                                    <p className="font-medium text-gray-900">
-                                      {incomeTax.assessment_year && incomeTax.assessment_year.length > 0
-                                        ? incomeTax.assessment_year.join(", ")
-                                        : "-"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Reference Information */}
-                              <div className="animate-in fade-in-50 duration-500 delay-300">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
-                                <div className="space-y-2">
-                                  <div>
-                                    <p className="text-xs text-gray-500">Reference Name</p>
-                                    <p className="font-medium text-gray-900">{incomeTax.reference_name || "-"}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">Reference Phone</p>
-                                    <p className="font-medium text-gray-900">{incomeTax.reference_phone || "-"}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                incomeTaxRecords
+                  .filter(record => statusFilter === "ALL" || record.stage === statusFilter)
+                  .map((incomeTax) => (
+                    <React.Fragment key={incomeTax.id}>
+                      <tr
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => toggleIncomeTaxDetails(incomeTax.id)}
+                      >
+                        <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
+                          {incomeTax.number_series}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {incomeTax.name}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {incomeTax.phone_no}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {incomeTax.pan_card_no ? incomeTax.pan_card_no.toUpperCase() : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${incomeTax.stage === 'Complate' ? 'bg-green-100 text-green-800' :
+                            incomeTax.stage === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
+                              incomeTax.stage === 'Document Pending' ? 'bg-orange-100 text-orange-800' :
+                                'bg-yellow-100 text-yellow-800'
+                            }`}>
+                            {incomeTax.stage || "Pending"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(incomeTax);
+                              }}
+                              className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(incomeTax.id);
+                              }}
+                              className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
-                    )}
-                  </React.Fragment>
-                ))
+                      {expandedIncomeTax === incomeTax.id && (
+                        <tr className="animate-in slide-in-from-top-1 duration-300">
+                          <td colSpan="6" className="px-0 py-0">
+                            <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {/* Personal Information */}
+                                <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
+                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
+                                  <div className="space-y-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Name</p>
+                                      <p className="font-medium text-gray-900">{incomeTax.name}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Phone</p>
+                                      <p className="font-medium text-gray-900">{incomeTax.phone_no}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">PAN Card</p>
+                                      <p className="font-medium text-gray-900">{incomeTax.pan_card_no ? incomeTax.pan_card_no.toUpperCase() : "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Password</p>
+                                      <p className="font-medium text-gray-900">{incomeTax.password || "-"}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Assessment Year Information */}
+                                <div className="animate-in fade-in-50 duration-500 delay-200">
+                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Status & Stage</h4>
+                                  <div className="space-y-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Status</p>
+                                      <p className="font-medium text-gray-900 uppercase">{incomeTax.status || "Pending"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Stage</p>
+                                      <p className="font-medium text-gray-900 uppercase">{incomeTax.stage || "Document Pending"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Assessment Years</p>
+                                      <p className="font-medium text-gray-900">
+                                        {incomeTax.assessment_year && incomeTax.assessment_year.length > 0
+                                          ? incomeTax.assessment_year.join(", ")
+                                          : "-"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Reference & Notes */}
+                                <div className="animate-in fade-in-50 duration-500 delay-300">
+                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference & Notes</h4>
+                                  <div className="space-y-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Reference Name</p>
+                                      <p className="font-medium text-gray-900">{incomeTax.reference_name || "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Reference Phone</p>
+                                      <p className="font-medium text-gray-900">{incomeTax.reference_phone || "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Note</p>
+                                      <p className="font-medium text-gray-900 whitespace-pre-wrap">{incomeTax.note || "-"}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Documents Section */}
+                              <IncomeTaxDocumentsSection incomeTaxId={incomeTax.id} />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))
               )}
             </tbody>
           </table>

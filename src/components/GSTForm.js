@@ -17,14 +17,15 @@ export default function GSTForm({
   };
 
   const subjectOptions = ['PROPERTY', 'PARTNERSHIP', 'BUSINESS', 'PROFESSIONAL', 'OTHER'];
-  const assessmentYearOptions = [
-    '2025-26',
-    '2026-27',
-    '2027-28',
-    '2028-29',
-    '2029-30',
-    '2030-31'
-  ];
+  const getCurrentYear = new Date().getFullYear();
+  const assessmentYearOptions = [];
+  const currentAssessmentYear = `${getCurrentYear}-${((getCurrentYear + 1) % 100).toString().padStart(2, '0')}`;
+
+  for (let i = 0; i < 60; i++) {
+    const year = getCurrentYear + i;
+    const nextYear = (year + 1) % 100;
+    assessmentYearOptions.push(`${year}-${nextYear.toString().padStart(2, '0')}`);
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -59,9 +60,8 @@ export default function GSTForm({
                 value={formData.name}
                 onChange={handleChange}
                 name="name"
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black ${
-                  errors.name ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black ${errors.name ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
             </div>
@@ -76,9 +76,8 @@ export default function GSTForm({
                 value={formData.phone_no}
                 onChange={handleChange}
                 name="phone_no"
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black ${
-                  errors.phone_no ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black ${errors.phone_no ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
               {errors.phone_no && <p className="text-red-500 text-xs mt-1">{errors.phone_no}</p>}
             </div>
@@ -105,9 +104,8 @@ export default function GSTForm({
                 value={formData.reference_phone}
                 onChange={handleChange}
                 name="reference_phone"
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black ${
-                  errors.reference_phone ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black ${errors.reference_phone ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
               {errors.reference_phone && <p className="text-red-500 text-xs mt-1">{errors.reference_phone}</p>}
             </div>
@@ -122,9 +120,8 @@ export default function GSTForm({
                 onChange={handleChange}
                 name="pan_card_no"
                 maxLength="10"
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black uppercase ${
-                  errors.pan_card_no ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black uppercase ${errors.pan_card_no ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
               {errors.pan_card_no && <p className="text-red-500 text-xs mt-1">{errors.pan_card_no}</p>}
             </div>
@@ -144,6 +141,37 @@ export default function GSTForm({
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
+            </div>
+
+            {/* GST Filing Frequency */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                GST Filing Frequency
+              </label>
+              <select
+                value={formData.gst_filing_frequency}
+                onChange={handleChange}
+                name="gst_filing_frequency"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+              >
+                <option value="">Select frequency</option>
+                <option value="MONTHLY">MONTHLY</option>
+                <option value="QUARTERLY">QUARTERLY</option>
+              </select>
+            </div>
+
+            {/* GST Filing Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                GST Filing Date
+              </label>
+              <input
+                type="date"
+                value={formData.gst_filing_date}
+                onChange={handleChange}
+                name="gst_filing_date"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+              />
             </div>
 
             <div>
@@ -178,51 +206,37 @@ export default function GSTForm({
               </label>
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type="text"
                   value={formData.password}
                   onChange={handleChange}
                   name="password"
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                      <line x1="1" y1="1" x2="23" y2="23"></line>
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                  )}
-                </button>
               </div>
             </div>
-          </div>
 
-          {/* Assessment Year */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Assessment Year</label>
-            <div className="grid grid-cols-3 gap-2">
-              {assessmentYearOptions.map(year => (
-                <label key={year} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.assessment_year?.includes(year) || false}
-                    onChange={() => handleAssessmentYearChange(year)}
-                    className="rounded border-gray-300 text-[#dfc797] focus:ring-[#dfc797]"
-                  />
-                  <span className="text-sm text-gray-700">{year}</span>
-                </label>
-              ))}
+            {/* Assessment Year */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Assessment Year</label>
+              <select
+                value={formData.assessment_year?.[0] || currentAssessmentYear}
+                onChange={(e) => {
+                  const selectedYear = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    assessment_year: [selectedYear]
+                  }));
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+              >
+                <option value="">Select assessment year</option>
+                {assessmentYearOptions.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
             </div>
-          </div>
 
+          </div>
           <div className="flex gap-3 pt-4">
             <button
               type="submit"

@@ -11,13 +11,10 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     // Get user info from token or API
     const getUserInfo = async () => {
-      console.log('Dashboard: Starting user info fetch...');
       try {
         const response = await fetch('/api/auth/me');
-        console.log('Dashboard: API response status:', response.status);
         if (response.ok) {
           const data = await response.json();
-          console.log('Dashboard: User data received:', data);
           setUser(data.user);
         } else {
           console.error('User info API failed:', response.status);

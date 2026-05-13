@@ -95,14 +95,16 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-[#1c3430] to-[#0f1f1c]">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <Image
-                src="/Ramkrishna.png"
-                alt="Premium Shoes"
-                width={300}
-                height={300}
-                className="object-contain"
-                priority
-              />
+              <div className="rounded-full bg-white p-8 h-[300px] w-[300px] flex items-center justify-center">
+                <Image
+                  src="/Ramkrishna.png"
+                  alt="Premium Shoes"
+                  width={300}
+                  height={300}
+                  className="object-contain"
+                  priority
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -115,7 +117,7 @@ export default function LoginPage() {
             <h1 className="text-4xl font-bold text-[#1c3430] mb-2">Welcome Back</h1>
             <p className="text-[#4b4c49]">Sign in to your account</p>
           </div>
-
+    
           {!showChangePassword && (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>

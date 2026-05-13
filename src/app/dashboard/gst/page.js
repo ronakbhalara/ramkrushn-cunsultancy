@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import React from "react";
 import { toast } from "react-toastify";
 import GSTForm from "../../../components/GSTForm";
+import GSTInfoModal from "../../../components/GSTInfoModal";
 
 export default function GSTPage() {
   const [gstRecords, setGstRecords] = useState([]);
@@ -13,6 +14,8 @@ export default function GSTPage() {
   const [selectedGST, setSelectedGST] = useState(null);
   const [expandedGST, setExpandedGST] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [selectedGSTForInfo, setSelectedGSTForInfo] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -25,6 +28,8 @@ export default function GSTPage() {
     user_id: "",
     password: "",
     assessment_year: [],
+    gst_filing_date: "",
+    gst_filing_frequency: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -88,7 +93,16 @@ export default function GSTPage() {
         : "/api/gst";
       const method = editingGST ? "PUT" : "POST";
 
-      const payload = editingGST ? { ...formData, id: editingGST.id } : formData;
+      // Calculate default assessment year
+      const getCurrentYear = new Date().getFullYear();
+      const currentAssessmentYear = `${getCurrentYear}-${((getCurrentYear + 1) % 100).toString().padStart(2, '0')}`;
+
+      const payload = {
+        ...(editingGST ? { ...formData, id: editingGST.id } : formData),
+        assessment_year: formData.assessment_year && formData.assessment_year.length > 0
+          ? formData.assessment_year
+          : [currentAssessmentYear]
+      };
 
       const response = await fetch(url, {
         method,
@@ -128,6 +142,8 @@ export default function GSTPage() {
       assessment_year: Array.isArray(gst.assessment_year)
         ? gst.assessment_year
         : [],
+      gst_filing_date: gst.gst_filing_date || "",
+      gst_filing_frequency: gst.gst_filing_frequency || "",
     });
     setShowForm(true);
   };
@@ -165,6 +181,8 @@ export default function GSTPage() {
       user_id: "",
       password: "",
       assessment_year: [],
+      gst_filing_date: "",
+      gst_filing_frequency: "",
     });
     setErrors({});
     setEditingGST(null);
@@ -175,8 +193,82 @@ export default function GSTPage() {
     setShowForm(false);
   };
 
+  const handleInfo = (gst) => {
+    setSelectedGSTForInfo(gst);
+    setShowInfoModal(true);
+  };
+
+  const handleInfoSubmit = async (documentData) => {
+    try {
+      const formData = new FormData();
+
+      // Append all form fields
+      Object.keys(documentData).forEach(key => {
+        if (key === 'images' && Array.isArray(documentData[key])) {
+          documentData[key].forEach(image => {
+            formData.append('images', image);
+          });
+        } else {
+          formData.append(key, documentData[key]);
+        }
+      });
+
+      // Append additional fields
+      if (selectedGSTForInfo?.documentData) {
+        // Update existing document
+        formData.append('document_id', selectedGSTForInfo.documentData.id);
+
+        const response = await fetch("/api/gst-documents", {
+          method: "PUT",
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          toast.success("GST document updated successfully!");
+        } else {
+          toast.error(data.message || "Failed to update GST document");
+        }
+      } else {
+        // Create new document
+        formData.append('gst_record_id', selectedGSTForInfo.id);
+        // document_path will be set by environment variable on server side
+
+        try {
+          const response = await fetch("/api/gst-documents", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            toast.success("GST document saved successfully!");
+          } else {
+            toast.error(data.message || "Failed to save GST document");
+          }
+        } catch (error) {
+          toast.error("Network error");
+        }
+      }
+    } catch (error) {
+      toast.error("Network error");
+    }
+  };
+
   const toggleGSTDetails = (gstId) => {
     setExpandedGST(expandedGST === gstId ? null : gstId);
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return "-";
+    const date = new Date(dateTimeString);
+    return date.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   };
 
   if (loading) {
@@ -346,6 +438,20 @@ export default function GSTPage() {
                             >
                               Delete
                             </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleInfo(gst);
+                              }}
+                              className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors flex items-center gap-1"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                              </svg>
+                              Info
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -369,6 +475,10 @@ export default function GSTPage() {
                                     <div>
                                       <p className="text-xs text-gray-500">PAN Card</p>
                                       <p className="font-medium text-gray-900">{gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Password</p>
+                                      <p className="font-medium text-gray-900">{gst.password || "-"}</p>
                                     </div>
                                   </div>
                                 </div>
@@ -404,6 +514,14 @@ export default function GSTPage() {
                                           : "-"}
                                       </p>
                                     </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">GST Filing Frequency</p>
+                                      <p className="font-medium text-sm  text-gray-900">{gst.gst_filing_frequency || "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">GST Filing Date</p>
+                                      <p className="font-medium text-sm text-gray-900">{formatDateTime(gst.gst_filing_date)}</p>
+                                    </div>
                                   </div>
                                 </div>
 
@@ -437,6 +555,14 @@ export default function GSTPage() {
           </table>
         </div>
       </div>
+
+      {/* GST Info Modal */}
+      <GSTInfoModal
+        show={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+        gstRecord={selectedGSTForInfo}
+        onSubmit={handleInfoSubmit}
+      />
     </div>
   );
 }

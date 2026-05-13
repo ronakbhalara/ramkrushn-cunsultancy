@@ -28,34 +28,62 @@ export async function POST(request) {
       date_time,
       payment_type,
       pending_amount,
-      complete_amount
+      complete_amount,
+      reference_name,
+      reference_phone,
+      payment_note
     } = body;
 
-    // Generate number series
-    const numberSeriesResult = await pool.query(
-      `SELECT LPAD((COALESCE(MAX(CAST(number_series AS INTEGER)), 0) + 1)::TEXT, 3, '0') as number_series FROM accounts`
-    );
-    const number_series = numberSeriesResult.rows[0]?.number_series || '001';
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    const result = await pool.query(
-      `INSERT INTO accounts (
-        number_series, name, phone_no, status, date_time, payment_type,
-        pending_amount, complete_amount
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *`,
-      [
-        number_series,
-        name,
-        phone_no,
-        status,
-        date_time,
-        payment_type,
-        pending_amount || 0,
-        complete_amount || 0
-      ]
-    );
+      // Generate number series
+      const numberSeriesResult = await client.query(
+        `SELECT LPAD((COALESCE(MAX(CAST(number_series AS INTEGER)), 0) + 1)::TEXT, 3, '0') as number_series FROM accounts`
+      );
+      const number_series = numberSeriesResult.rows[0]?.number_series || '001';
 
-    return NextResponse.json({ success: true, data: result.rows[0] });
+      const finalStatus = (parseFloat(pending_amount) >= parseFloat(complete_amount) && parseFloat(complete_amount) > 0) ? 'COMPLETE' : status;
+
+      const result = await client.query(
+        `INSERT INTO accounts (
+          number_series, name, phone_no, status, date_time,
+          pending_amount, complete_amount, reference_name, reference_phone
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *`,
+        [
+          number_series,
+          name,
+          phone_no,
+          finalStatus,
+          date_time,
+          pending_amount || 0,
+          complete_amount || 0,
+          reference_name,
+          reference_phone
+        ]
+      );
+
+      const newAccount = result.rows[0];
+
+      // If initial payment exists, add to payment history
+      if (pending_amount > 0) {
+        await client.query(
+          `INSERT INTO account_payments (account_id, amount, payment_date, note, payment_type)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [newAccount.id, pending_amount, date_time, payment_note || 'Initial Payment', payment_type]
+        );
+      }
+
+      await client.query('COMMIT');
+      return NextResponse.json({ success: true, data: newAccount });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Error creating Account record:', error);
     return NextResponse.json(
@@ -77,23 +105,27 @@ export async function PUT(request) {
       date_time,
       payment_type,
       pending_amount,
-      complete_amount
+      complete_amount,
+      reference_name,
+      reference_phone
     } = body;
 
     const result = await pool.query(
       `UPDATE accounts SET 
-        name = $1, phone_no = $2, status = $3, date_time = $4, payment_type = $5,
-        pending_amount = $6, complete_amount = $7, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $8
+        name = $1, phone_no = $2, status = $3, date_time = $4,
+        pending_amount = $5, complete_amount = $6, reference_name = $7, reference_phone = $8, 
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $9
       RETURNING *`,
       [
         name,
         phone_no,
         status,
         date_time,
-        payment_type,
         pending_amount || 0,
         complete_amount || 0,
+        reference_name,
+        reference_phone,
         id
       ]
     );

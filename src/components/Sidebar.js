@@ -44,6 +44,7 @@ export default function Sidebar({
     { name: "GST", href: "/dashboard/gst", icon: "📋" },
     { name: "Income TAX", href: "/dashboard/income-tax", icon: "🧾" },
     { name: "Account", href: "/dashboard/account", icon: "👤" },
+    { name: "Settings", href: "/dashboard/settings", icon: "⚙️" },
   ];
 
   return (

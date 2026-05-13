@@ -20,22 +20,52 @@ export async function GET() {
     const usersResult = await pool.query('SELECT COUNT(*) as count FROM users');
     const totalClients = parseInt(usersResult.rows[0].count);
 
+    // Get total account records
+    let totalAccount = 0;
+    try {
+      const accountResult = await pool.query('SELECT COUNT(*) as count FROM accounts');
+      totalAccount = parseInt(accountResult.rows[0].count);
+    } catch (error) {
+      console.log('Account records table does not exist yet');
+      totalAccount = 0;
+    }
+
+    // Get total other records
+    let totalOthers = 0;
+    try {
+      const othersResult = await pool.query('SELECT COUNT(*) as count FROM other_records');
+      totalOthers = parseInt(othersResult.rows[0].count);
+    } catch (error) {
+      console.log('Other records table does not exist yet');
+      totalOthers = 0;
+    }
+
     // Get recent activities (latest 10 records from all tables)
-    const recentGST = await pool.query(
-      'SELECT id, name, created_at, \'GST\' as type FROM gst_records ORDER BY created_at DESC LIMIT 5'
-    );
     const recentLoans = await pool.query(
       'SELECT id, name, created_at, \'Loan\' as type FROM loans ORDER BY created_at DESC LIMIT 5'
     );
-    const recentIncomeTax = await pool.query(
-      'SELECT id, name, created_at, \'Income Tax\' as type FROM income_tax_records ORDER BY created_at DESC LIMIT 5'
-    );
+
+    let recentAccount = { rows: [] };
+    try {
+      recentAccount = await pool.query(
+        'SELECT id, name, created_at, \'Account\' as type FROM accounts ORDER BY created_at DESC LIMIT 5'
+      );
+    } catch (error) {
+      console.log('Account records table does not exist yet');
+    }
+
+    let recentOthers = { rows: [] };
+    try {
+      recentOthers = await pool.query(
+        'SELECT id, name, created_at, \'Others\' as type FROM other_records ORDER BY created_at DESC LIMIT 5'
+      );
+    } catch (error) {
+      console.log('Other records table does not exist yet');
+    }
 
     // Combine and sort recent activities
     const allActivities = [
-      ...recentGST.rows,
       ...recentLoans.rows,
-      ...recentIncomeTax.rows
     ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
 
     const dashboardData = {
@@ -44,7 +74,9 @@ export async function GET() {
         totalLoans,
         totalIncomeTax,
         totalClients,
-        totalLoanAmount
+        totalLoanAmount,
+        totalAccount,
+        totalOthers
       },
       recentActivities: allActivities
     };

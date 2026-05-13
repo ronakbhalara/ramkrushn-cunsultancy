@@ -12,15 +12,29 @@ export default function AccountPage() {
   const [editingAccount, setEditingAccount] = useState(null);
   const [expandedAccount, setExpandedAccount] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [paymentHistory, setPaymentHistory] = useState({});
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [paymentFormData, setPaymentFormData] = useState({
+    amount: "",
+    date: new Date().toISOString().split('T')[0],
+    note: "",
+    paymentType: "CASH"
+  });
+  const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
     phone_no: "",
-    status: "",
+    status: "RECEIPT",
     date_time: "",
     payment_type: "",
     pending_amount: "",
     complete_amount: "",
+    reference_name: "",
+    reference_phone: "",
+    payment_note: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -113,15 +127,27 @@ export default function AccountPage() {
   };
 
   const handleEdit = (account) => {
+    // Format date for the HTML date input (YYYY-MM-DD) in local time
+    let formattedDate = "";
+    if (account.date_time) {
+      const d = new Date(account.date_time);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      formattedDate = `${year}-${month}-${day}`;
+    }
+
     setEditingAccount(account);
     setFormData({
       name: account.name,
       phone_no: account.phone_no,
       status: account.status,
-      date_time: account.date_time,
+      date_time: formattedDate,
       payment_type: account.payment_type,
       pending_amount: account.pending_amount || "",
       complete_amount: account.complete_amount || "",
+      reference_name: account.reference_name || "",
+      reference_phone: account.reference_phone || "",
     });
     setShowForm(true);
   };
@@ -151,11 +177,14 @@ export default function AccountPage() {
     setFormData({
       name: "",
       phone_no: "",
-      status: "",
+      status: "RECEIPT",
       date_time: "",
       payment_type: "",
       pending_amount: "",
       complete_amount: "",
+      reference_name: "",
+      reference_phone: "",
+      payment_note: "",
     });
     setErrors({});
     setEditingAccount(null);
@@ -166,8 +195,108 @@ export default function AccountPage() {
     setShowForm(false);
   };
 
-  const toggleAccountDetails = (accountId) => {
-    setExpandedAccount(expandedAccount === accountId ? null : accountId);
+  const toggleAccountDetails = async (accountId) => {
+    if (expandedAccount === accountId) {
+      setExpandedAccount(null);
+    } else {
+      setExpandedAccount(accountId);
+      // Fetch payment history for this account
+      if (!paymentHistory[accountId]) {
+        try {
+          const response = await fetch(`/api/account/payments?accountId=${accountId}`);
+          const data = await response.json();
+          if (data.success) {
+            setPaymentHistory(prev => ({ ...prev, [accountId]: data.data }));
+          }
+        } catch (error) {
+          console.error("Failed to fetch payment history", error);
+        }
+      }
+    }
+  };
+
+  const handleOpenPaymentModal = (e, account, payment = null) => {
+    if (e) e.stopPropagation();
+    setSelectedAccount(account);
+    const getLocalDateString = (dateObj) => {
+      const d = new Date(dateObj);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    if (payment) {
+      setIsEditingPayment(true);
+      setEditingPaymentId(payment.id);
+      setPaymentFormData({
+        amount: payment.amount,
+        date: getLocalDateString(payment.payment_date),
+        note: payment.note || "",
+        paymentType: payment.payment_type || "CASH"
+      });
+    } else {
+      setIsEditingPayment(false);
+      setEditingPaymentId(null);
+      setPaymentFormData({
+        amount: "",
+        date: getLocalDateString(new Date()),
+        note: "",
+        paymentType: "CASH"
+      });
+    }
+    setShowPaymentModal(true);
+  };
+
+  const handleAddPayment = async () => {
+    const amount = parseFloat(paymentFormData.amount);
+    const oldAmount = isEditingPayment ? parseFloat(paymentHistory[selectedAccount.id].find(p => p.id === editingPaymentId).amount) : 0;
+    const remaining = parseFloat(selectedAccount.complete_amount || 0) - (parseFloat(selectedAccount.pending_amount || 0) - oldAmount);
+
+    if (!paymentFormData.amount || !paymentFormData.date) {
+      toast.warning("Please fill amount and date");
+      return;
+    }
+
+    if (amount > remaining + 0.01) {
+      toast.error(`Payment amount cannot exceed remaining balance of ₹${remaining.toFixed(2)}`);
+      return;
+    }
+
+    try {
+      const url = isEditingPayment ? "/api/account/payments" : "/api/account/payments";
+      const method = isEditingPayment ? "PUT" : "POST";
+      const payload = isEditingPayment 
+        ? { id: editingPaymentId, amount, date: paymentFormData.date, note: paymentFormData.note, paymentType: paymentFormData.paymentType }
+        : { accountId: selectedAccount.id, amount, date: paymentFormData.date, note: paymentFormData.note, paymentType: paymentFormData.paymentType };
+
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(isEditingPayment ? "Payment updated successfully!" : "Payment recorded successfully!");
+        setShowPaymentModal(false);
+        setIsEditingPayment(false);
+        setEditingPaymentId(null);
+        fetchAccountRecords(); // Refresh account list to show updated paid amount
+
+        // Refresh payment history for this account if it's expanded
+        const historyResponse = await fetch(`/api/account/payments?accountId=${selectedAccount.id}`);
+        const historyData = await historyResponse.json();
+        if (historyData.success) {
+          setPaymentHistory(prev => ({ ...prev, [selectedAccount.id]: historyData.data }));
+        }
+      } else {
+        toast.error(data.message || "Failed to add payment");
+      }
+    } catch (error) {
+      toast.error("Network error");
+    }
   };
 
   const formatDateTime = (dateTimeString) => {
@@ -177,8 +306,6 @@ export default function AccountPage() {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 
@@ -208,15 +335,6 @@ export default function AccountPage() {
               }`}
           >
             All
-          </button>
-          <button
-            onClick={() => setStatusFilter("PAYMENT")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "PAYMENT"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            Payment
           </button>
           <button
             onClick={() => setStatusFilter("RECEIPT")}
@@ -276,10 +394,7 @@ export default function AccountPage() {
                   Status
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Date & Time
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Payment Type
+                  Remaining Amount
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Actions
@@ -316,35 +431,31 @@ export default function AccountPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              account.status === "PAYMENT"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : account.status === "RECEIPT"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : account.status === "COMPLETE"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
-                            }`}
+                            className={`px-2 py-1 text-xs font-semibold rounded-full ${account.status === "PAYMENT"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : account.status === "RECEIPT"
+                                ? "bg-blue-100 text-blue-800"
+                                : account.status === "COMPLETE"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
                           >
                             {account.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          {formatDateTime(account.date_time)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          <span
-                            className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              account.payment_type === "CASH"
-                                ? "bg-purple-100 text-purple-800"
-                                : "bg-orange-100 text-orange-800"
-                            }`}
-                          >
-                            {account.payment_type}
-                          </span>
+                          <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                            ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
+                          </p>
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <div className="flex gap-2">
+                            <button
+                              onClick={(e) => handleOpenPaymentModal(e, account)}
+                              className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors"
+                            >
+                              Paid
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -386,40 +497,16 @@ export default function AccountPage() {
                                     <div>
                                       <p className="text-xs text-gray-500">Status</p>
                                       <span
-                                        className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
-                                          account.status === "PAYMENT"
-                                            ? "bg-yellow-100 text-yellow-800"
-                                            : account.status === "RECEIPT"
-                                              ? "bg-blue-100 text-blue-800"
-                                              : account.status === "COMPLETE"
-                                                ? "bg-green-100 text-green-800"
-                                                : "bg-gray-100 text-gray-800"
-                                        }`}
+                                        className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${account.status === "PAYMENT"
+                                          ? "bg-yellow-100 text-yellow-800"
+                                          : account.status === "RECEIPT"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : account.status === "COMPLETE"
+                                              ? "bg-green-100 text-green-800"
+                                              : "bg-gray-100 text-gray-800"
+                                          }`}
                                       >
                                         {account.status}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Payment Information */}
-                                <div className="animate-in fade-in-50 duration-500 delay-200">
-                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Payment Information</h4>
-                                  <div className="space-y-2">
-                                    <div>
-                                      <p className="text-xs text-gray-500">Date & Time</p>
-                                      <p className="font-medium text-gray-900">{formatDateTime(account.date_time)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">Payment Type</p>
-                                      <span
-                                        className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
-                                          account.payment_type === "CASH"
-                                            ? "bg-purple-100 text-purple-800"
-                                            : "bg-orange-100 text-orange-800"
-                                        }`}
-                                      >
-                                        {account.payment_type}
                                       </span>
                                     </div>
                                   </div>
@@ -430,13 +517,80 @@ export default function AccountPage() {
                                   <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Amount Information</h4>
                                   <div className="space-y-2">
                                     <div>
-                                      <p className="text-xs text-gray-500">Pending Amount</p>
+                                      <p className="text-xs text-gray-500">Paid Amount</p>
                                       <p className="font-medium text-gray-900">₹{formatAmount(account.pending_amount)}</p>
                                     </div>
                                     <div>
                                       <p className="text-xs text-gray-500">Complete Amount</p>
                                       <p className="font-medium text-gray-900">₹{formatAmount(account.complete_amount)}</p>
                                     </div>
+                                    <div className="pt-1 border-t border-gray-200">
+                                      <p className="text-xs text-gray-500">Remaining Amount</p>
+                                      <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                                        ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Reference Information */}
+                                <div className="animate-in fade-in-50 duration-500 delay-300">
+                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
+                                  <div className="space-y-2">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Reference Name</p>
+                                      <p className="font-medium text-gray-900">{account.reference_name || "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Reference Phone</p>
+                                      <p className="font-medium text-gray-900">{account.reference_phone || "-"}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Payment History */}
+                                <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-4 animate-in fade-in-50 duration-500 delay-400">
+                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 border-t pt-4">Payment History</h4>
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left text-gray-500">
+                                      <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                                        <tr>
+                                          <th className="px-4 py-2">Date</th>
+                                          <th className="px-4 py-2">Amount</th>
+                                          <th className="px-4 py-2">Payment Type</th>
+                                          <th className="px-4 py-2">Note</th>
+                                          <th className="px-4 py-2">Actions</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {paymentHistory[account.id] && paymentHistory[account.id].length > 0 ? (
+                                          paymentHistory[account.id].map((payment) => (
+                                            <tr key={payment.id} className="bg-white border-b hover:bg-gray-50">
+                                              <td className="px-4 py-2">{formatDateTime(payment.payment_date)}</td>
+                                              <td className="px-4 py-2 font-medium text-gray-900">₹{formatAmount(payment.amount)}</td>
+                                              <td className="px-4 py-2 text-xs font-semibold">
+                                                <span className={`px-2 py-1 rounded-full ${payment.payment_type === 'CASH' ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}`}>
+                                                  {payment.payment_type}
+                                                </span>
+                                              </td>
+                                              <td className="px-4 py-2">{payment.note || "-"}</td>
+                                              <td className="px-4 py-2">
+                                                <button
+                                                  onClick={(e) => handleOpenPaymentModal(e, account, payment)}
+                                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                                >
+                                                  Edit
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ))
+                                        ) : (
+                                          <tr>
+                                            <td colSpan="5" className="px-4 py-4 text-center text-gray-400">No payment records found.</td>
+                                          </tr>
+                                        )}
+                                      </tbody>
+                                    </table>
                                   </div>
                                 </div>
                               </div>
@@ -451,6 +605,88 @@ export default function AccountPage() {
           </table>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6">
+            <h2 className="text-xl font-bold text-[#1c3430] mb-4">
+              {isEditingPayment ? "Edit Payment" : "Record Payment"}
+            </h2>
+            <div className="space-y-1 mb-4">
+              <p className="text-sm text-gray-600">Customer: <span className="font-semibold">{selectedAccount?.name}</span></p>
+              <p className="text-sm text-gray-600">
+                {isEditingPayment ? "Current Account Balance: " : "Remaining Balance: "}
+                <span className="font-bold text-red-600">
+                  ₹{formatAmount(
+                    isEditingPayment 
+                    ? (parseFloat(selectedAccount?.complete_amount || 0) - (parseFloat(selectedAccount?.pending_amount || 0) - parseFloat(paymentHistory[selectedAccount.id].find(p => p.id === editingPaymentId).amount)))
+                    : (parseFloat(selectedAccount?.complete_amount || 0) - parseFloat(selectedAccount?.pending_amount || 0))
+                  )}
+                </span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                <input
+                  type="number"
+                  value={paymentFormData.amount}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+                  placeholder="Enter amount"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                <input
+                  type="date"
+                  value={paymentFormData.date}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type *</label>
+                <select
+                  value={paymentFormData.paymentType}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, paymentType: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+                >
+                  <option value="CASH">CASH</option>
+                  <option value="ONLINE">ONLINE</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                <textarea
+                  value={paymentFormData.note}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, note: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+                  placeholder="Optional note"
+                  rows="3"
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleAddPayment}
+                className="flex-1 bg-[#dfc797] text-[#17312d] py-2 px-4 rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors"
+              >
+                {isEditingPayment ? "Update Payment" : "Add Payment"}
+              </button>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

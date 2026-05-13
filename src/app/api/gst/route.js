@@ -31,20 +31,23 @@ export async function POST(request) {
       gst_no,
       user_id,
       password,
-      assessment_year
+      assessment_year,
+      gst_filing_date,
+      gst_filing_frequency
     } = body;
 
     // Generate number series
     const numberSeriesResult = await pool.query(
-      `SELECT LPAD((COALESCE(MAX(CAST(number_series AS INTEGER)), 0) + 1)::TEXT, 3, '0') as number_series FROM gst_records`
+      `SELECT 'G-' || LPAD((COALESCE(MAX(CAST(SUBSTRING(number_series, 3) AS INTEGER)), 0) + 1)::TEXT, 2, '0') as number_series FROM gst_records WHERE number_series LIKE 'G-%'`
     );
     const number_series = numberSeriesResult.rows[0].number_series;
 
     const result = await pool.query(
       `INSERT INTO gst_records (
         number_series, name, phone_no, reference_name, reference_phone,
-        pan_card_no, subject, gst_no, user_id, password, assessment_year
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        pan_card_no, subject, gst_no, user_id, password, assessment_year,
+        gst_filing_date, gst_filing_frequency
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
         number_series,
@@ -57,7 +60,9 @@ export async function POST(request) {
         gst_no,
         user_id,
         password,
-        JSON.stringify(assessment_year)
+        JSON.stringify(assessment_year),
+        gst_filing_date,
+        gst_filing_frequency
       ]
     );
 
@@ -86,15 +91,17 @@ export async function PUT(request) {
       gst_no,
       user_id,
       password,
-      assessment_year
+      assessment_year,
+      gst_filing_date,
+      gst_filing_frequency
     } = body;
 
     const result = await pool.query(
       `UPDATE gst_records SET 
         name = $1, phone_no = $2, reference_name = $3, reference_phone = $4,
         pan_card_no = $5, subject = $6, gst_no = $7, user_id = $8, password = $9,
-        assessment_year = $10, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+        assessment_year = $10, gst_filing_date = $11, gst_filing_frequency = $12, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $13
       RETURNING *`,
       [
         name,
@@ -107,6 +114,8 @@ export async function PUT(request) {
         user_id,
         password,
         JSON.stringify(assessment_year),
+        gst_filing_date,
+        gst_filing_frequency,
         id
       ]
     );
