@@ -12,7 +12,7 @@ export default function LoanPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingLoan, setEditingLoan] = useState(null);
   const [expandedLoan, setExpandedLoan] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -219,6 +219,15 @@ export default function LoanPage() {
         {/* Status Filter */}
         <div className="flex gap-2">
           <button
+            onClick={() => setStatusFilter("ALL")}
+            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "ALL"
+              ? "bg-[#dfc797] text-[#17312d]"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+          >
+            All
+          </button>
+          <button
             onClick={() => setStatusFilter("ACTIVE")}
             className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "ACTIVE"
               ? "bg-[#dfc797] text-[#17312d]"
@@ -290,18 +299,18 @@ export default function LoanPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {loans.filter(loan => loan.stage === statusFilter).length === 0 ? (
+              {loans.filter(loan => statusFilter === "ALL" || loan.stage === statusFilter).length === 0 ? (
                 <tr>
                   <td
                     colSpan="9"
                     className="px-4 py-8 text-center text-gray-500"
                   >
-                    No {statusFilter.toLowerCase()} loans found. Click "Add New Loan" to get started.
+                    No {statusFilter === "ALL" ? "" : statusFilter.toLowerCase()} loans found. Click "Add New Loan" to get started.
                   </td>
                 </tr>
               ) : (
                 loans
-                  .filter(loan => loan.stage === statusFilter)
+                  .filter(loan => statusFilter === "ALL" || loan.stage === statusFilter)
                   .map((loan) => (
                     <React.Fragment key={loan.id}>
                       <tr
