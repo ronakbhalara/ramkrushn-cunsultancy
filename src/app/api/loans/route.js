@@ -25,7 +25,7 @@ export async function POST(request) {
   try {
     const formData = await request.formData();
     const files = formData.getAll('files');
-    
+
     // Extract loan data from form
     const loanData = {
       name: formData.get('name'),
@@ -80,8 +80,9 @@ export async function POST(request) {
 
     // Handle file uploads if any
     if (files && files.length > 0) {
-      const uploadDir = process.env.LOAN_DOCUMENT || 'D:/Loan-Document';
-      
+      const envPath = process.env.LOAN_DOCUMENT || 'D:\\CRM-Document\\Loan-Document';
+      const uploadDir = path.isAbsolute(envPath) ? envPath : path.join(process.cwd(), envPath);
+
       // Ensure upload directory exists
       try {
         await mkdir(uploadDir, { recursive: true });
@@ -107,15 +108,15 @@ export async function POST(request) {
            VALUES ($1, $2, $3, $4, $5) RETURNING *`,
           [newLoan.id, uniqueFilename, file.name, file.size, file.type]
         );
-        
+
         uploadedDocuments.push(docResult.rows[0]);
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: newLoan,
-      documents: uploadedDocuments 
+      documents: uploadedDocuments
     });
   } catch (error) {
     console.error('Error creating loan:', error);

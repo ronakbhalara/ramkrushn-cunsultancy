@@ -3,11 +3,13 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const UPLOAD_DIR = process.env.INCOME_TAX_DOCUMENT || 'D:\\Income-Tax-Document';
+const envPath = process.env.INCOME_TAX_DOCUMENT || 'D:\\CRM-Document\\Income-Tax-Document';
+const UPLOAD_DIR = path.isAbsolute(envPath) ? envPath : path.join(process.cwd(), envPath);
 
-// Ensure directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+async function ensureDirectoryExists(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
 }
 
 // GET all Income Tax records
@@ -76,6 +78,7 @@ export async function POST(request) {
       const incomeTaxId = result.rows[0].id;
 
       // Process and save files
+      await ensureDirectoryExists(UPLOAD_DIR);
       for (const file of files) {
         if (file instanceof File) {
           const buffer = Buffer.from(await file.arrayBuffer());
@@ -155,6 +158,7 @@ export async function PUT(request) {
       );
 
       // Process and save new files
+      await ensureDirectoryExists(UPLOAD_DIR);
       for (const file of files) {
         if (file instanceof File) {
           const buffer = Buffer.from(await file.arrayBuffer());

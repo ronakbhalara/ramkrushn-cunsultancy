@@ -16,8 +16,9 @@ export async function POST(request) {
       );
     }
 
-    const uploadDir = process.env.LOAN_DOCUMENT || 'D:/Loan-Document';
-    
+    const envPath = process.env.LOAN_DOCUMENT || 'D:\\CRM-Document\\Loan-Document';
+    const uploadDir = path.isAbsolute(envPath) ? envPath : path.join(process.cwd(), envPath);
+
     // Ensure upload directory exists
     try {
       await mkdir(uploadDir, { recursive: true });
