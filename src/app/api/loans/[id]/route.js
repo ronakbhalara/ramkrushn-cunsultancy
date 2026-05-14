@@ -98,13 +98,15 @@ export async function PUT(request, { params }) {
 
     // Handle file uploads if any
     if (files && files.length > 0) {
-      const uploadDir = process.env.LOAN_DOCUMENT || 'D:/Loan-Document';
+      const envPath = process.env.LOAN_DOCUMENT || 'D:\\CRM-Document\\Loan-Document';
+      const uploadDir = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
       
       // Ensure upload directory exists
       try {
         await mkdir(uploadDir, { recursive: true });
       } catch (error) {
         console.error('Error creating upload directory:', error);
+        throw error;
       }
 
       for (const file of files) {

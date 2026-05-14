@@ -81,13 +81,14 @@ export async function POST(request) {
     // Handle file uploads if any
     if (files && files.length > 0) {
       const envPath = process.env.LOAN_DOCUMENT || 'D:\\CRM-Document\\Loan-Document';
-      const uploadDir = path.isAbsolute(envPath) ? envPath : path.join(process.cwd(), envPath);
+      const uploadDir = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
 
       // Ensure upload directory exists
       try {
         await mkdir(uploadDir, { recursive: true });
       } catch (error) {
         console.error('Error creating upload directory:', error);
+        throw error;
       }
 
       for (const file of files) {

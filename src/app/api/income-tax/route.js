@@ -4,11 +4,16 @@ import fs from 'fs';
 import path from 'path';
 
 const envPath = process.env.INCOME_TAX_DOCUMENT || 'D:\\CRM-Document\\Income-Tax-Document';
-const UPLOAD_DIR = path.isAbsolute(envPath) ? envPath : path.join(process.cwd(), envPath);
+const UPLOAD_DIR = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
 
 async function ensureDirectoryExists(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (error) {
+    console.error(`Error creating directory ${dir}:`, error);
+    throw error;
   }
 }
 

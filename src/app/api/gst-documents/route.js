@@ -4,21 +4,19 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 // Get document path from environment variable
-const DOCUMENT_PATH = process.env.GST_DOCUMENT || 'D:\\Gst-Document';
+const envPath = process.env.GST_DOCUMENT || 'D:\\CRM-Document\\Gst-Document';
+const DOCUMENT_PATH = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
 
 // Ensure document directory exists
 async function ensureDirectoryExists(dirPath) {
   try {
-    await fs.access(dirPath);
-    console.log(`Directory already exists: ${dirPath}`);
-  } catch (error) {
-    try {
+    if (!fs.existsSync(dirPath)) {
       await fs.mkdir(dirPath, { recursive: true });
       console.log(`Directory created successfully: ${dirPath}`);
-    } catch (mkdirError) {
-      console.error(`Failed to create directory ${dirPath}:`, mkdirError);
-      throw mkdirError;
     }
+  } catch (error) {
+    console.error(`Failed to create directory ${dirPath}:`, error);
+    throw error;
   }
 }
 
@@ -55,7 +53,7 @@ export async function POST(request) {
         const image = images[index];
         if (image.size > 0) {
           // Create unique filename
-          const imagePath = `${DOCUMENT_PATH}\\${document_number}_${index + 1}_${image.name}`;
+          const imagePath = path.join(DOCUMENT_PATH, `${document_number}_${index + 1}_${image.name}`);
           imagePaths.push(imagePath);
 
           // Save file to filesystem
@@ -180,7 +178,7 @@ export async function PUT(request) {
         const image = newImages[index];
         if (image.size > 0) {
           // Create unique filename
-          const imagePath = `${DOCUMENT_PATH}\\GD-UPDATE_${documentId}_${index + 1}_${image.name}`;
+          const imagePath = path.join(DOCUMENT_PATH, `GD-UPDATE_${documentId}_${index + 1}_${image.name}`);
           imagePaths.push(imagePath);
 
           // Save file to filesystem
