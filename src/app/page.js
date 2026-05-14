@@ -212,6 +212,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowChangePassword(!showChangePassword)}
                   className="text-sm cursor-pointer text-[#1c3430] hover:underline"
+                  suppressHydrationWarning={true}
                 >
                   Forgot password?
                 </button>

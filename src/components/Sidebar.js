@@ -44,6 +44,8 @@ export default function Sidebar({
     { name: "GST", href: "/dashboard/gst", icon: "📋" },
     { name: "Income TAX", href: "/dashboard/income-tax", icon: "🧾" },
     { name: "Account", href: "/dashboard/account", icon: "👤" },
+    { name: "Tasks", href: "/dashboard/tasks", icon: "📅" },
+    { name: "Daily Hisab", href: "/dashboard/daily-hisab", icon: "💸" },
     { name: "Settings", href: "/dashboard/settings", icon: "⚙️" },
   ];
 
@@ -154,7 +156,7 @@ export default function Sidebar({
         </div>
 
         {/* Menu */}
-        <nav className="flex-1 overflow-visible px-3 py-5">
+        <nav className="flex-1 overflow-y-auto px-3 py-5 custom-scrollbar">
           <div className="space-y-3">
             {menuItems.map((item) => {
               const isActive = pathname === item.href;

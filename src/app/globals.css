@@ -34,4 +34,29 @@ body {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #17312d;
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #dfc797;
+    border-radius: 10px;
+    opacity: 0.5;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #f0d9ae;
+  }
+
+  /* For Firefox */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #dfc797 #17312d;
+  }
 }

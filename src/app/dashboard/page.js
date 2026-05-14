@@ -81,23 +81,6 @@ export default function Dashboard() {
         <>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-            {/* GST Card */}
-            <div
-              onClick={() => handleCardClick('GST')}
-              className="bg-white rounded-lg shadow-sm p-6 border-t-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer hover:scale-105 transform transition-transform"
-            >
-              <div className="flex items-center">
-                <div className="p-3 bg-blue-50 rounded-full">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">GST</p>
-                  <p className="text-2xl font-bold text-gray-900">{data.stats.totalGST?.toLocaleString() || '0'}</p>
-                </div>
-              </div>
-            </div>
 
             {/* Loan Card */}
             <div
@@ -137,20 +120,20 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Account Card */}
+            {/* GST Card */}
             <div
-              onClick={() => handleCardClick('Account')}
-              className="bg-white rounded-lg shadow-sm p-6 border-t-4 border-orange-500 hover:shadow-md transition-shadow cursor-pointer hover:scale-105 transform transition-transform"
+              onClick={() => handleCardClick('GST')}
+              className="bg-white rounded-lg shadow-sm p-6 border-t-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer hover:scale-105 transform transition-transform"
             >
               <div className="flex items-center">
-                <div className="p-3 bg-orange-50 rounded-full">
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                <div className="p-3 bg-blue-50 rounded-full">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Account</p>
-                  <p className="text-2xl font-bold text-gray-900">{data.stats.totalAccount?.toLocaleString() || '0'}</p>
+                  <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">GST</p>
+                  <p className="text-2xl font-bold text-gray-900">{data.stats.totalGST?.toLocaleString() || '0'}</p>
                 </div>
               </div>
             </div>
@@ -169,6 +152,24 @@ export default function Dashboard() {
                 <div className="ml-4">
                   <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Others</p>
                   <p className="text-2xl font-bold text-gray-900">{data.stats.totalOthers?.toLocaleString() || '0'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Account Card */}
+            <div
+              onClick={() => handleCardClick('Account')}
+              className="bg-white rounded-lg shadow-sm p-6 border-t-4 border-orange-500 hover:shadow-md transition-shadow cursor-pointer hover:scale-105 transform transition-transform"
+            >
+              <div className="flex items-center">
+                <div className="p-3 bg-orange-50 rounded-full">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Account</p>
+                  <p className="text-2xl font-bold text-gray-900">{data.stats.totalAccount?.toLocaleString() || '0'}</p>
                 </div>
               </div>
             </div>
