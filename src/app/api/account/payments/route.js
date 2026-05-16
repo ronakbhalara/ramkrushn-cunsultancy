@@ -47,7 +47,7 @@ export async function POST(request) {
 
     // 1. Get current account details
     const accountResult = await client.query(
-      'SELECT pending_amount, complete_amount FROM accounts WHERE id = $1 FOR UPDATE',
+      'SELECT pending_amount, complete_amount, name FROM accounts WHERE id = $1 FOR UPDATE',
       [accountId]
     );
 
@@ -55,7 +55,7 @@ export async function POST(request) {
       throw new Error('Account not found');
     }
 
-    const { pending_amount: currentPaid, complete_amount: totalAmount } = accountResult.rows[0];
+    const { pending_amount: currentPaid, complete_amount: totalAmount, name: accountName } = accountResult.rows[0];
     const newPaidAmount = parseFloat(currentPaid || 0) + parseFloat(amount);
     const remaining = parseFloat(totalAmount || 0) - parseFloat(currentPaid || 0);
 
@@ -84,6 +84,14 @@ export async function POST(request) {
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $3`,
       [newPaidAmount, newStatus, accountId]
+    );
+
+    // 4. Insert into daily_hisab as INCOME
+    const hisabDescription = `Account Payment - ${accountName}${note ? ` (${note})` : ''}`;
+    await client.query(
+      `INSERT INTO daily_hisab (type, amount, description, created_at)
+       VALUES ($1, $2, $3, $4::timestamp)`,
+      ['INCOME', amount, hisabDescription, date]
     );
 
     await client.query('COMMIT');

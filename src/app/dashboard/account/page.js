@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import React from "react";
 import { toast } from "react-toastify";
+import * as XLSX from "xlsx";
 import AccountForm from "../../../components/AccountForm";
 
 export default function AccountPage() {
@@ -266,7 +267,7 @@ export default function AccountPage() {
     try {
       const url = isEditingPayment ? "/api/account/payments" : "/api/account/payments";
       const method = isEditingPayment ? "PUT" : "POST";
-      const payload = isEditingPayment 
+      const payload = isEditingPayment
         ? { id: editingPaymentId, amount, date: paymentFormData.date, note: paymentFormData.note, paymentType: paymentFormData.paymentType }
         : { accountId: selectedAccount.id, amount, date: paymentFormData.date, note: paymentFormData.note, paymentType: paymentFormData.paymentType };
 
@@ -314,6 +315,39 @@ export default function AccountPage() {
     return parseFloat(amount).toFixed(2);
   };
 
+  const exportToExcel = () => {
+    const dataToExport = accountRecords
+      .filter(account => statusFilter === "ALL" || account.status === statusFilter)
+      .map(account => ({
+        "Series Number": account.number_series || "-",
+        "Name": account.name || "-",
+        "Phone": account.phone_no || "-",
+        "Status": account.status || "-",
+        "Total Amount": account.complete_amount || 0,
+        "Paid Amount": account.pending_amount || 0,
+        "Remaining Amount": (parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0)),
+        "Reference Name": account.reference_name || "-",
+        "Reference Phone": account.reference_phone || "-",
+        "Date": account.date_time ? new Date(account.date_time).toLocaleDateString('en-IN') : "-"
+      }));
+
+    if (dataToExport.length === 0) {
+      toast.warning("No records to export!");
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Accounts");
+
+    // Auto size columns
+    const maxWidths = dataToExport.map(row => Object.values(row).map(val => val.toString().length));
+    const colWidths = maxWidths[0].map((_, i) => Math.max(...maxWidths.map(row => row[i])));
+    worksheet['!cols'] = colWidths.map(w => ({ wch: w + 2 }));
+
+    XLSX.writeFile(workbook, `Account_Records_${statusFilter}_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}.xlsx`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -353,6 +387,15 @@ export default function AccountPage() {
               }`}
           >
             Complete
+          </button>
+          <button
+            onClick={exportToExcel}
+            className="px-4 py-2 ml-2 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Export to Excel
           </button>
         </div>
         <button
@@ -619,9 +662,9 @@ export default function AccountPage() {
                 {isEditingPayment ? "Current Account Balance: " : "Remaining Balance: "}
                 <span className="font-bold text-red-600">
                   ₹{formatAmount(
-                    isEditingPayment 
-                    ? (parseFloat(selectedAccount?.complete_amount || 0) - (parseFloat(selectedAccount?.pending_amount || 0) - parseFloat(paymentHistory[selectedAccount.id].find(p => p.id === editingPaymentId).amount)))
-                    : (parseFloat(selectedAccount?.complete_amount || 0) - parseFloat(selectedAccount?.pending_amount || 0))
+                    isEditingPayment
+                      ? (parseFloat(selectedAccount?.complete_amount || 0) - (parseFloat(selectedAccount?.pending_amount || 0) - parseFloat(paymentHistory[selectedAccount.id].find(p => p.id === editingPaymentId).amount)))
+                      : (parseFloat(selectedAccount?.complete_amount || 0) - parseFloat(selectedAccount?.pending_amount || 0))
                   )}
                 </span>
               </p>

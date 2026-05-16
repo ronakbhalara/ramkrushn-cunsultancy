@@ -35,14 +35,12 @@ export default function TaskForm({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
             >
               <option value="LOAN">Loan</option>
-              <option value="INCOME_TAX">Income Tax</option>
-              <option value="GST">GST</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Title *
+              Series Number *
             </label>
             <input
               type="text"
@@ -52,7 +50,7 @@ export default function TaskForm({
                 setFormData({ ...formData, title: e.target.value })
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
-              placeholder="Enter task title"
+              placeholder="Enter Series Number"
             />
           </div>
 

@@ -46,7 +46,7 @@ export async function POST(request) {
 
     // Generate number series
     const numberSeriesResult = await pool.query(
-      `SELECT 'L-' || LPAD((COALESCE(MAX(CAST(SUBSTRING(number_series, 3) AS INTEGER)), 0) + 1)::TEXT, 2, '0') as number_series FROM loans WHERE number_series LIKE 'L-%'`
+      `SELECT 'L-' || (COALESCE(MAX(CAST(SUBSTRING(number_series, 3) AS INTEGER)), 0) + 1)::TEXT as number_series FROM loans WHERE number_series LIKE 'L-%'`
     );
     const number_series = numberSeriesResult.rows[0].number_series;
 

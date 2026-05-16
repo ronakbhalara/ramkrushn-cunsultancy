@@ -271,6 +271,47 @@ export default function GSTPage() {
     });
   };
 
+  const isTaskCompletedThisMonth = (dateString) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const now = new Date();
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  };
+
+  const isGSTR1Completed = (gst) => isTaskCompletedThisMonth(gst.last_gstr1_filed_date);
+  const isGSTR3BCompleted = (gst) => isTaskCompletedThisMonth(gst.last_gstr3b_filed_date);
+
+  const handleTaskComplete = async (id, taskType) => {
+    try {
+      const response = await fetch('/api/gst/task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, taskType }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`${taskType} marked as complete!`);
+        fetchGSTRecords();
+      } else {
+        toast.error(data.message || `Failed to update ${taskType}`);
+      }
+    } catch (error) {
+      toast.error('Network error');
+    }
+  };
+
+  const filteredGSTRecords = gstRecords.filter(gst => {
+    if (statusFilter === "ALL") return true;
+    if (statusFilter === "TASK") {
+      const today = new Date().getDate();
+      if (today >= 1 && today <= 20) {
+        return !isGSTR3BCompleted(gst);
+      }
+      return false;
+    }
+    return gst.subject === statusFilter;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -294,24 +335,6 @@ export default function GSTPage() {
             All
           </button>
           <button
-            onClick={() => setStatusFilter("PROPERTY")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "PROPERTY"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            Property
-          </button>
-          <button
-            onClick={() => setStatusFilter("PARTNERSHIP")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "PARTNERSHIP"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            Partnership
-          </button>
-          <button
             onClick={() => setStatusFilter("BUSINESS")}
             className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "BUSINESS"
               ? "bg-[#dfc797] text-[#17312d]"
@@ -319,6 +342,15 @@ export default function GSTPage() {
               }`}
           >
             Business
+          </button>
+          <button
+            onClick={() => setStatusFilter("TASK")}
+            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "TASK"
+              ? "bg-[#dfc797] text-[#17312d]"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+          >
+            Task
           </button>
         </div>
         <button
@@ -371,185 +403,239 @@ export default function GSTPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {gstRecords.filter(gst => statusFilter === "ALL" || gst.subject === statusFilter).length === 0 ? (
+              {filteredGSTRecords.length === 0 ? (
                 <tr>
                   <td
                     colSpan="7"
                     className="px-4 py-8 text-center text-gray-500"
                   >
-                    No {statusFilter.toLowerCase()} GST records found. Click "Add New GST" to get started.
+                    {statusFilter === "TASK" && new Date().getDate() > 20
+                      ? "Tasks are only visible between the 1st and 20th of the month."
+                      : `No ${statusFilter === "ALL" ? "" : statusFilter.toLowerCase()} GST records found. Click "Add New GST" to get started.`}
                   </td>
                 </tr>
               ) : (
-                gstRecords
-                  .filter(gst => statusFilter === "ALL" || gst.subject === statusFilter)
-                  .map((gst) => (
-                    <React.Fragment key={gst.id}>
-                      <tr
-                        className="hover:bg-gray-50 cursor-pointer"
-                        onClick={() => toggleGSTDetails(gst.id)}
-                      >
-                        <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
-                          {gst.number_series}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {gst.name}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {gst.phone_no}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
-                              ? "bg-blue-100 text-blue-800"
-                              : gst.subject === "PARTNERSHIP"
-                                ? "bg-green-100 text-green-800"
-                                : gst.subject === "BUSINESS"
-                                  ? "bg-purple-100 text-purple-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
+                filteredGSTRecords
+                  .map((gst, index) => {
+                    const rowBgClass = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                    const hasTags = (isGSTR1Completed(gst) || isGSTR3BCompleted(gst)) && statusFilter !== "TASK";
+                    return (
+                      <React.Fragment key={gst.id}>
+                        <tr
+                          className={`cursor-pointer transition-colors ${rowBgClass} ${hasTags && expandedGST !== gst.id ? 'border-b-0' : ''}`}
+                          onClick={() => toggleGSTDetails(gst.id)}
+                        >
+                          <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
+                            {gst.number_series}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {gst.name}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {gst.phone_no}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
+                                ? "bg-blue-100 text-blue-800"
+                                : gst.subject === "PARTNERSHIP"
+                                  ? "bg-green-100 text-green-800"
+                                  : gst.subject === "BUSINESS"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`}
+                            >
+                              {gst.subject || "N/A"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {gst.gst_no || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {statusFilter === "TASK" ? (
+                              <div className="flex gap-2">
+                                {!isGSTR1Completed(gst) && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTaskComplete(gst.id, 'GSTR-1');
+                                    }}
+                                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors border border-blue-300"
+                                  >
+                                    GSTR-1
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleTaskComplete(gst.id, 'GSTR-3B');
+                                  }}
+                                  className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors border border-green-300"
+                                >
+                                  GSTR-3B
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(gst);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(gst.id);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleInfo(gst);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors flex items-center gap-1"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                  </svg>
+                                  Info
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                        {hasTags && (
+                          <tr
+                            className={`cursor-pointer transition-colors ${rowBgClass}`}
+                            onClick={() => toggleGSTDetails(gst.id)}
                           >
-                            {gst.subject || "N/A"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {gst.gst_no || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEdit(gst);
-                              }}
-                              className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(gst.id);
-                              }}
-                              className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
-                            >
-                              Delete
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleInfo(gst);
-                              }}
-                              className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors flex items-center gap-1"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="12" y1="16" x2="12" y2="12"></line>
-                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                              </svg>
-                              Info
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {expandedGST === gst.id && (
-                        <tr className="animate-in slide-in-from-top-1 duration-300">
-                          <td colSpan="7" className="px-0 py-0">
-                            <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {/* Personal Information */}
-                                <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
-                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
-                                  <div className="space-y-2">
-                                    <div>
-                                      <p className="text-xs text-gray-500">Name</p>
-                                      <p className="font-medium text-gray-900">{gst.name}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">Phone</p>
-                                      <p className="font-medium text-gray-900">{gst.phone_no}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">PAN Card</p>
-                                      <p className="font-medium text-gray-900">{gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">Password</p>
-                                      <p className="font-medium text-gray-900">{gst.password || "-"}</p>
+                            <td colSpan="7" className="px-4 pb-3 pt-0 text-sm">
+                              <div className="flex gap-2 items-center">
+                                <span className="font-bold text-gray-900">Task Complete: </span>
+                                {isGSTR1Completed(gst) && (
+                                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex items-center gap-1">
+                                    GSTR-1
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                  </span>
+                                )}
+                                {isGSTR3BCompleted(gst) && (
+                                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex items-center gap-1">
+                                    GSTR-3B
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {expandedGST === gst.id && (
+                          <tr className="animate-in slide-in-from-top-1 duration-300">
+                            <td colSpan="7" className="px-0 py-0">
+                              <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                  {/* Personal Information */}
+                                  <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
+                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-xs text-gray-500">Name</p>
+                                        <p className="font-medium text-gray-900">{gst.name}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Phone</p>
+                                        <p className="font-medium text-gray-900">{gst.phone_no}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">PAN Card</p>
+                                        <p className="font-medium text-gray-900">{gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Password</p>
+                                        <p className="font-medium text-gray-900">{gst.password || "-"}</p>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
 
-                                {/* GST Information */}
-                                <div className="animate-in fade-in-50 duration-500 delay-200">
-                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">GST Information</h4>
-                                  <div className="space-y-2">
-                                    <div>
-                                      <p className="text-xs text-gray-500">GST Number</p>
-                                      <p className="font-medium text-gray-900">{gst.gst_no || "-"}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">Subject</p>
-                                      <span
-                                        className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : gst.subject === "PARTNERSHIP"
-                                            ? "bg-green-100 text-green-800"
-                                            : gst.subject === "BUSINESS"
-                                              ? "bg-purple-100 text-purple-800"
-                                              : "bg-gray-100 text-gray-800"
-                                          }`}
-                                      >
-                                        {gst.subject || "N/A"}
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">Assessment Years</p>
-                                      <p className="font-medium text-gray-900">
-                                        {gst.assessment_year && gst.assessment_year.length > 0
-                                          ? gst.assessment_year.join(", ")
-                                          : "-"}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">GST Filing Frequency</p>
-                                      <p className="font-medium text-sm  text-gray-900">{gst.gst_filing_frequency || "-"}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">GST Filing Date</p>
-                                      <p className="font-medium text-sm text-gray-900">{formatDateTime(gst.gst_filing_date)}</p>
+                                  {/* GST Information */}
+                                  <div className="animate-in fade-in-50 duration-500 delay-200">
+                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">GST Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-xs text-gray-500">GST Number</p>
+                                        <p className="font-medium text-gray-900">{gst.gst_no || "-"}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Subject</p>
+                                        <span
+                                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : gst.subject === "PARTNERSHIP"
+                                              ? "bg-green-100 text-green-800"
+                                              : gst.subject === "BUSINESS"
+                                                ? "bg-purple-100 text-purple-800"
+                                                : "bg-gray-100 text-gray-800"
+                                            }`}
+                                        >
+                                          {gst.subject || "N/A"}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Assessment Years</p>
+                                        <p className="font-medium text-gray-900">
+                                          {gst.assessment_year && gst.assessment_year.length > 0
+                                            ? gst.assessment_year.join(", ")
+                                            : "-"}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">GST Filing Frequency</p>
+                                        <p className="font-medium text-sm  text-gray-900">{gst.gst_filing_frequency || "-"}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">GST Filing Date</p>
+                                        <p className="font-medium text-sm text-gray-900">{formatDateTime(gst.gst_filing_date)}</p>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
 
-                                {/* Reference Information */}
-                                <div className="animate-in fade-in-50 duration-500 delay-300">
-                                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
-                                  <div className="space-y-2">
-                                    <div>
-                                      <p className="text-xs text-gray-500">Reference Name</p>
-                                      <p className="font-medium text-gray-900">{gst.reference_name || "-"}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">Reference Phone</p>
-                                      <p className="font-medium text-gray-900">{gst.reference_phone || "-"}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500">User ID</p>
-                                      <p className="font-medium text-gray-900">{gst.user_id || "-"}</p>
+                                  {/* Reference Information */}
+                                  <div className="animate-in fade-in-50 duration-500 delay-300">
+                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-xs text-gray-500">Reference Name</p>
+                                        <p className="font-medium text-gray-900">{gst.reference_name || "-"}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Reference Phone</p>
+                                        <p className="font-medium text-gray-900">{gst.reference_phone || "-"}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">User ID</p>
+                                        <p className="font-medium text-gray-900">{gst.user_id || "-"}</p>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
               )}
             </tbody>
           </table>

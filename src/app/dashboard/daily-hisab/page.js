@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import * as XLSX from "xlsx";
 import HisabForm from "../../../components/HisabForm";
 
 export default function DailyHisabPage() {
@@ -84,6 +85,31 @@ export default function DailyHisabPage() {
 
   const balance = totalIncome - totalExpense;
 
+  const exportToExcel = () => {
+    const dataToExport = filteredEntries.map(entry => ({
+      "Date": entry.entry_date ? new Date(entry.entry_date).toLocaleDateString('en-IN') : "-",
+      "Description": entry.description || "-",
+      "Type": entry.type || "-",
+      "Amount": parseFloat(entry.amount) || 0,
+    }));
+
+    if (dataToExport.length === 0) {
+      toast.warning("No records to export for this date!");
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Daily_Hisab");
+
+    // Auto size columns
+    const maxWidths = dataToExport.map(row => Object.values(row).map(val => val.toString().length));
+    const colWidths = maxWidths[0].map((_, i) => Math.max(...maxWidths.map(row => row[i])));
+    worksheet['!cols'] = colWidths.map(w => ({ wch: w + 2 }));
+
+    XLSX.writeFile(workbook, `Daily_Hisab_${filterDate}.xlsx`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -125,12 +151,23 @@ export default function DailyHisabPage() {
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-black text-[#17312d]">Transition History</h2>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-4 py-2 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-black shadow-sm transition-all flex items-center gap-2 text-xs"
-        >
-          <span>+</span> Add Entry
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={exportToExcel}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-black shadow-sm transition-all flex items-center gap-2 text-xs"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Export
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="px-4 py-2 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-black shadow-sm transition-all flex items-center gap-2 text-xs"
+          >
+            <span>+</span> Add Entry
+          </button>
+        </div>
       </div>
 
       {/* Entry Columns */}

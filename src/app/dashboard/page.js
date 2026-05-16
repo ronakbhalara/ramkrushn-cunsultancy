@@ -80,7 +80,7 @@ export default function Dashboard() {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
 
             {/* Loan Card */}
             <div
@@ -134,24 +134,6 @@ export default function Dashboard() {
                 <div className="ml-4">
                   <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">GST</p>
                   <p className="text-2xl font-bold text-gray-900">{data.stats.totalGST?.toLocaleString() || '0'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Others Card */}
-            <div
-              onClick={() => handleCardClick('Others')}
-              className="bg-white rounded-lg shadow-sm p-6 border-t-4 border-red-500 hover:shadow-md transition-shadow cursor-pointer hover:scale-105 transform transition-transform"
-            >
-              <div className="flex items-center">
-                <div className="p-3 bg-red-50 rounded-full">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Others</p>
-                  <p className="text-2xl font-bold text-gray-900">{data.stats.totalOthers?.toLocaleString() || '0'}</p>
                 </div>
               </div>
             </div>

@@ -51,9 +51,9 @@ export async function POST(request) {
 
     // Generate number series
     const numberSeriesResult = await pool.query(
-      `SELECT 'I-' || LPAD((COALESCE(MAX(CAST(SUBSTRING(number_series, 3) AS INTEGER)), 0) + 1)::TEXT, 2, '0') as number_series FROM income_tax_records WHERE number_series LIKE 'I-%'`
+      `SELECT 'I-' || (COALESCE(MAX(CAST(SUBSTRING(number_series, 3) AS INTEGER)), 0) + 1)::TEXT as number_series FROM income_tax_records WHERE number_series LIKE 'I-%'`
     );
-    const number_series = numberSeriesResult.rows[0]?.number_series || 'I-01';
+    const number_series = numberSeriesResult.rows[0]?.number_series || 'I-1';
 
     const client = await pool.connect();
     try {
@@ -89,7 +89,7 @@ export async function POST(request) {
           const buffer = Buffer.from(await file.arrayBuffer());
           const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
           const filePath = path.join(UPLOAD_DIR, fileName);
-          
+
           fs.writeFileSync(filePath, buffer);
 
           await client.query(
@@ -169,7 +169,7 @@ export async function PUT(request) {
           const buffer = Buffer.from(await file.arrayBuffer());
           const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
           const filePath = path.join(UPLOAD_DIR, fileName);
-          
+
           fs.writeFileSync(filePath, buffer);
 
           await client.query(
