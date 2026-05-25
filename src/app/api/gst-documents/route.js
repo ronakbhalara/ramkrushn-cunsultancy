@@ -1,31 +1,27 @@
-import pool from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc, updateDoc, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
-// Get document path from environment variable
 const envPath = process.env.GST_DOCUMENT || 'D:\\CRM-Document\\Gst-Document';
 const DOCUMENT_PATH = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
 
-// Ensure document directory exists
 async function ensureDirectoryExists(dirPath) {
   try {
-    if (!fs.existsSync(dirPath)) {
+    await fs.access(dirPath);
+  } catch {
+    try {
       await fs.mkdir(dirPath, { recursive: true });
-      console.log(`Directory created successfully: ${dirPath}`);
-    }
-  } catch (error) {
-    console.error(`Failed to create directory ${dirPath}:`, error);
-    throw error;
+    } catch (error) {}
   }
 }
 
 // POST - Create new GST document
 export async function POST(request) {
   try {
-    // Ensure document directory exists
     await ensureDirectoryExists(DOCUMENT_PATH);
-
     const formData = await request.formData();
 
     const month_year = formData.get('month_year');
@@ -34,61 +30,55 @@ export async function POST(request) {
     const name = formData.get('name');
     const amount = formData.get('amount');
     const gst_record_id = formData.get('gst_record_id');
-    const document_path = formData.get('document_path');
-
-    // Get all images
     const images = formData.getAll('images');
 
-    // Generate document number series
-    const numberSeriesResult = await pool.query(
-      `SELECT 'GD-' || LPAD((COALESCE(MAX(CAST(SUBSTRING(document_number, 4) AS INTEGER)), 0) + 1)::TEXT, 3, '0') as document_number 
-       FROM gst_documents WHERE document_number LIKE 'GD-%'`
-    );
-    const document_number = numberSeriesResult.rows[0].document_number;
+    // Generate number series
+    const snapshot = await getDocs(collection(db, 'gst_documents'));
+    let maxNum = 0;
+    snapshot.forEach(docSnap => {
+      const ns = docSnap.data().document_number;
+      if (ns && ns.startsWith('GD-')) {
+        const num = parseInt(ns.substring(3), 10);
+        if (num > maxNum) maxNum = num;
+      }
+    });
+    const document_number = `GD-${String(maxNum + 1).padStart(3, '0')}`;
 
-    // Handle multiple image uploads
     const imagePaths = [];
     if (images && images.length > 0) {
       for (let index = 0; index < images.length; index++) {
         const image = images[index];
-        if (image.size > 0) {
-          // Create unique filename
-          const imagePath = path.join(DOCUMENT_PATH, `${document_number}_${index + 1}_${image.name}`);
+        if (image instanceof File && image.size > 0) {
+          const fileExt = path.extname(image.name);
+          const uniqueName = `${document_number}_${index + 1}_${uuidv4()}${fileExt}`;
+          const imagePath = path.join(DOCUMENT_PATH, uniqueName);
           imagePaths.push(imagePath);
 
-          // Save file to filesystem
           try {
             const buffer = Buffer.from(await image.arrayBuffer());
             await fs.writeFile(imagePath, buffer);
-            console.log(`File saved successfully: ${imagePath}`);
-          } catch (fileError) {
-            console.error(`Failed to save file ${imagePath}:`, fileError);
-            // Continue with other files even if one fails
-          }
+          } catch (fileError) {}
         }
       }
     }
 
-    const result = await pool.query(
-      `INSERT INTO gst_documents (
-        document_number, month_year, bill_type, gst_number, name, amount, 
-        gst_record_id, document_path, image_paths, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
-      RETURNING *`,
-      [
-        document_number,
-        month_year,
-        bill_type,
-        gst_number,
-        name,
-        amount,
-        gst_record_id,
-        DOCUMENT_PATH,
-        JSON.stringify(imagePaths)
-      ]
-    );
+    const newDocRef = doc(collection(db, 'gst_documents'));
+    const newRecord = {
+      document_number,
+      month_year: month_year || '',
+      bill_type: bill_type || '',
+      gst_number: gst_number || '',
+      name: name || '',
+      amount: amount || '',
+      gst_record_id: gst_record_id || '',
+      document_path: DOCUMENT_PATH,
+      image_paths: JSON.stringify(imagePaths),
+      created_at: new Date().toISOString()
+    };
+    
+    await setDoc(newDocRef, newRecord);
 
-    return NextResponse.json({ success: true, data: result.rows[0] });
+    return NextResponse.json({ success: true, data: { id: newDocRef.id, ...newRecord } });
   } catch (error) {
     console.error('Error creating GST document:', error);
     return NextResponse.json(
@@ -98,37 +88,34 @@ export async function POST(request) {
   }
 }
 
-// GET - Get GST documents (all or by gst_record_id)
+// GET - Get GST documents
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const gst_record_id = searchParams.get('gst_record_id');
 
-    let query;
-    let params = [];
-
+    let q = query(collection(db, 'gst_documents'));
     if (gst_record_id) {
-      // Get documents for specific GST record
-      query = `
-        SELECT gd.*, gr.name as gst_record_name 
-        FROM gst_documents gd 
-        LEFT JOIN gst_records gr ON gd.gst_record_id = gr.id 
-        WHERE gd.gst_record_id = $1 
-        ORDER BY gd.created_at DESC
-      `;
-      params = [gst_record_id];
-    } else {
-      // Get all documents
-      query = `
-        SELECT gd.*, gr.name as gst_record_name 
-        FROM gst_documents gd 
-        LEFT JOIN gst_records gr ON gd.gst_record_id = gr.id 
-        ORDER BY gd.created_at DESC
-      `;
+      q = query(collection(db, 'gst_documents'), where('gst_record_id', '==', gst_record_id));
+    }
+    
+    const snapshot = await getDocs(q);
+    const documents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+    // Get gst_record_names
+    const recordCache = {};
+    for (let i = 0; i < documents.length; i++) {
+      const recId = documents[i].gst_record_id;
+      if (recId) {
+        if (!recordCache[recId]) {
+          const rSnap = await getDoc(doc(db, 'gst_records', recId));
+          recordCache[recId] = rSnap.exists() ? rSnap.data().name : null;
+        }
+        documents[i].gst_record_name = recordCache[recId];
+      }
     }
 
-    const result = await pool.query(query, params);
-    return NextResponse.json({ success: true, data: result.rows });
+    return NextResponse.json({ success: true, data: documents });
   } catch (error) {
     console.error('Error fetching GST documents:', error);
     return NextResponse.json(
@@ -141,75 +128,53 @@ export async function GET(request) {
 // PUT - Update GST document
 export async function PUT(request) {
   try {
-    // Ensure document directory exists
     await ensureDirectoryExists(DOCUMENT_PATH);
-
     const formData = await request.formData();
 
     const documentId = formData.get('document_id');
-    const month_year = formData.get('month_year');
-    const bill_type = formData.get('bill_type');
-    const gst_number = formData.get('gst_number');
-    const name = formData.get('name');
-    const amount = formData.get('amount');
-
-    // Get new images
     const newImages = formData.getAll('images');
 
-    // Get existing document to preserve existing images
-    const existingDocResult = await pool.query(
-      'SELECT image_paths FROM gst_documents WHERE id = $1',
-      [documentId]
-    );
+    const docRef = doc(db, 'gst_documents', documentId);
+    const docSnap = await getDoc(docRef);
 
-    if (existingDocResult.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'GST document not found' },
-        { status: 404 }
-      );
+    if (!docSnap.exists()) {
+      return NextResponse.json({ success: false, message: 'GST document not found' }, { status: 404 });
     }
 
-    const existingImagePaths = JSON.parse(existingDocResult.rows[0].image_paths || '[]');
+    const existingData = docSnap.data();
+    const existingImagePaths = JSON.parse(existingData.image_paths || '[]');
     const imagePaths = [...existingImagePaths];
 
-    // Handle new image uploads
     if (newImages && newImages.length > 0) {
       for (let index = 0; index < newImages.length; index++) {
         const image = newImages[index];
-        if (image.size > 0) {
-          // Create unique filename
-          const imagePath = path.join(DOCUMENT_PATH, `GD-UPDATE_${documentId}_${index + 1}_${image.name}`);
+        if (image instanceof File && image.size > 0) {
+          const fileExt = path.extname(image.name);
+          const uniqueName = `GD-UPDATE_${documentId}_${index + 1}_${uuidv4()}${fileExt}`;
+          const imagePath = path.join(DOCUMENT_PATH, uniqueName);
           imagePaths.push(imagePath);
 
-          // Save file to filesystem
           try {
             const buffer = Buffer.from(await image.arrayBuffer());
             await fs.writeFile(imagePath, buffer);
-            console.log(`File saved successfully: ${imagePath}`);
-          } catch (fileError) {
-            console.error(`Failed to save file ${imagePath}:`, fileError);
-          }
+          } catch (fileError) {}
         }
       }
     }
 
-    const result = await pool.query(
-      `UPDATE gst_documents SET 
-        month_year = $1, bill_type = $2, gst_number = $3, 
-        name = $4, amount = $5, image_paths = $6, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $7 RETURNING *`,
-      [
-        month_year,
-        bill_type,
-        gst_number,
-        name,
-        amount,
-        JSON.stringify(imagePaths),
-        documentId
-      ]
-    );
+    const updateData = {
+      month_year: formData.get('month_year') || existingData.month_year,
+      bill_type: formData.get('bill_type') || existingData.bill_type,
+      gst_number: formData.get('gst_number') || existingData.gst_number,
+      name: formData.get('name') || existingData.name,
+      amount: formData.get('amount') || existingData.amount,
+      image_paths: JSON.stringify(imagePaths),
+      updated_at: new Date().toISOString()
+    };
 
-    return NextResponse.json({ success: true, data: result.rows[0] });
+    await updateDoc(docRef, updateData);
+
+    return NextResponse.json({ success: true, data: { id: documentId, ...existingData, ...updateData } });
   } catch (error) {
     console.error('Error updating GST document:', error);
     return NextResponse.json(
@@ -230,46 +195,29 @@ export async function DELETE(request) {
     const body = await request.json().catch(() => ({}));
     const { document_id, image_path: bodyImagePath, image_index: bodyImageIndex } = body;
 
-    // Delete specific image from document
     if ((bodyImagePath || imagePath) && (document_id || documentId)) {
       const docId = document_id || documentId;
       const imgPath = bodyImagePath || imagePath;
       const imgIndex = bodyImageIndex || imageIndex;
 
-      // Get current document
-      const docResult = await pool.query(
-        'SELECT image_paths FROM gst_documents WHERE id = $1',
-        [docId]
-      );
+      const docRef = doc(db, 'gst_documents', docId);
+      const docSnap = await getDoc(docRef);
 
-      if (docResult.rows.length === 0) {
-        return NextResponse.json(
-          { success: false, message: 'Document not found' },
-          { status: 404 }
-        );
+      if (!docSnap.exists()) {
+        return NextResponse.json({ success: false, message: 'Document not found' }, { status: 404 });
       }
 
-      const currentImagePaths = JSON.parse(docResult.rows[0].image_paths || '[]');
+      const currentImagePaths = JSON.parse(docSnap.data().image_paths || '[]');
+      const updatedImagePaths = currentImagePaths.filter((_, index) => index !== parseInt(imgIndex));
 
-      // Remove image from array
-      const updatedImagePaths = currentImagePaths.filter((_, index) =>
-        index !== parseInt(imgIndex)
-      );
+      await updateDoc(docRef, {
+        image_paths: JSON.stringify(updatedImagePaths),
+        updated_at: new Date().toISOString()
+      });
 
-      // Update database
-      await pool.query(
-        'UPDATE gst_documents SET image_paths = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [JSON.stringify(updatedImagePaths), docId]
-      );
-
-      // Try to delete file from filesystem
       try {
         await fs.unlink(imgPath);
-        console.log(`Deleted file: ${imgPath}`);
-      } catch (fileError) {
-        console.error(`Failed to delete file ${imgPath}:`, fileError);
-        // Continue with database update even if file deletion fails
-      }
+      } catch (fileError) {}
 
       return NextResponse.json({
         success: true,
@@ -278,27 +226,27 @@ export async function DELETE(request) {
       });
     }
 
-    // Delete entire document
     if (documentId) {
-      const result = await pool.query(
-        'DELETE FROM gst_documents WHERE id = $1 RETURNING *',
-        [documentId]
-      );
+      const docRef = doc(db, 'gst_documents', documentId);
+      const docSnap = await getDoc(docRef);
 
-      if (result.rows.length === 0) {
-        return NextResponse.json(
-          { success: false, message: 'GST document not found' },
-          { status: 404 }
-        );
+      if (!docSnap.exists()) {
+        return NextResponse.json({ success: false, message: 'GST document not found' }, { status: 404 });
       }
+      
+      const currentImagePaths = JSON.parse(docSnap.data().image_paths || '[]');
+      for (const imgPath of currentImagePaths) {
+         try {
+           await fs.unlink(imgPath);
+         } catch(e) {}
+      }
+
+      await deleteDoc(docRef);
 
       return NextResponse.json({ success: true, message: 'GST document deleted successfully' });
     }
 
-    return NextResponse.json(
-      { success: false, message: 'Invalid delete request' },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, message: 'Invalid delete request' }, { status: 400 });
   } catch (error) {
     console.error('Error deleting GST document/image:', error);
     return NextResponse.json(

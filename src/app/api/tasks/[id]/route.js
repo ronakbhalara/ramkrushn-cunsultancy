@@ -1,4 +1,5 @@
-import pool from '../../../../lib/db';
+import { db } from '../../../../lib/firebase';
+import { doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 // PUT - Update a task
@@ -8,24 +9,29 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     const { category, title, description, due_date, status } = body;
 
-    const result = await pool.query(
-      `UPDATE tasks 
-       SET category = $1, title = $2, description = $3, due_date = $4, status = $5, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
-       RETURNING *`,
-      [category, title, description, due_date || null, status, id]
-    );
-
-    if (result.rowCount === 0) {
+    const recordRef = doc(db, 'tasks', id);
+    const snap = await getDoc(recordRef);
+    if (!snap.exists()) {
       return NextResponse.json(
         { success: false, message: 'Task not found' },
         { status: 404 }
       );
     }
 
+    const updateData = {
+      category: category || '',
+      title: title || '',
+      description: description || '',
+      due_date: due_date || null,
+      status: status || '',
+      updated_at: new Date().toISOString()
+    };
+
+    await updateDoc(recordRef, updateData);
+
     return NextResponse.json({
       success: true,
-      data: result.rows[0]
+      data: { id, ...snap.data(), ...updateData }
     });
   } catch (error) {
     console.error('Error updating task:', error);
@@ -41,17 +47,16 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
 
-    const result = await pool.query(
-      'DELETE FROM tasks WHERE id = $1 RETURNING *',
-      [id]
-    );
-
-    if (result.rowCount === 0) {
+    const recordRef = doc(db, 'tasks', id);
+    const snap = await getDoc(recordRef);
+    if (!snap.exists()) {
       return NextResponse.json(
         { success: false, message: 'Task not found' },
         { status: 404 }
       );
     }
+
+    await deleteDoc(recordRef);
 
     return NextResponse.json({
       success: true,

@@ -204,7 +204,6 @@ export default function LoanType() {
                 <h3 className="text-base font-semibold text-gray-900">
                   {type.type_name}
                 </h3>
-                <span className="text-xs text-gray-400">#{type.id}</span>
               </div>
               <div className="flex justify-end space-x-1.5">
                 <button

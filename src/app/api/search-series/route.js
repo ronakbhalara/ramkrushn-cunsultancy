@@ -1,4 +1,5 @@
-import pool from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 export async function GET(request) {
@@ -13,28 +14,15 @@ export async function GET(request) {
       );
     }
 
-    let result;
+    let collectionName = '';
 
-    // Search in Loans
+    // Determine collection based on prefix
     if (series.startsWith('L-')) {
-      result = await pool.query(
-        'SELECT name, phone_no, reference_name, reference_phone FROM loans WHERE number_series = $1',
-        [series]
-      );
-    } 
-    // Search in GST
-    else if (series.startsWith('G-')) {
-      result = await pool.query(
-        'SELECT name, phone_no, reference_name, reference_phone FROM gst_records WHERE number_series = $1',
-        [series]
-      );
-    }
-    // Search in Income Tax
-    else if (series.startsWith('I-')) {
-      result = await pool.query(
-        'SELECT name, phone_no, reference_name, reference_phone FROM income_tax_records WHERE number_series = $1',
-        [series]
-      );
+      collectionName = 'loans';
+    } else if (series.startsWith('G-')) {
+      collectionName = 'gst_records';
+    } else if (series.startsWith('I-')) {
+      collectionName = 'income_tax_records';
     } else {
       return NextResponse.json(
         { success: false, message: 'Invalid series format' },
@@ -42,8 +30,20 @@ export async function GET(request) {
       );
     }
 
-    if (result.rows.length > 0) {
-      return NextResponse.json({ success: true, data: result.rows[0] });
+    const q = query(collection(db, collectionName), where('number_series', '==', series));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const data = snapshot.docs[0].data();
+      return NextResponse.json({ 
+        success: true, 
+        data: {
+          name: data.name || '',
+          phone_no: data.phone_no || '',
+          reference_name: data.reference_name || '',
+          reference_phone: data.reference_phone || ''
+        } 
+      });
     } else {
       return NextResponse.json(
         { success: false, message: 'Record not found for this series number' },

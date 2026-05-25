@@ -402,8 +402,20 @@ export default function IncomeTaxPage() {
                                     <div>
                                       <p className="text-xs text-gray-500">Assessment Years</p>
                                       <p className="font-medium text-gray-900">
-                                        {incomeTax.assessment_year && incomeTax.assessment_year.length > 0
-                                          ? incomeTax.assessment_year.join(", ")
+                                        {incomeTax.assessment_year
+                                          ? (() => {
+                                            try {
+                                              const years = typeof incomeTax.assessment_year === "string"
+                                                ? JSON.parse(incomeTax.assessment_year)
+                                                : incomeTax.assessment_year;
+
+                                              return Array.isArray(years)
+                                                ? years.join(", ")
+                                                : years;
+                                            } catch {
+                                              return incomeTax.assessment_year;
+                                            }
+                                          })()
                                           : "-"}
                                       </p>
                                     </div>

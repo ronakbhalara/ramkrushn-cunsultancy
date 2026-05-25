@@ -307,13 +307,13 @@ export default function LandingPage() {
                 <a href="#contact" className="font-semibold text-[#1c3430]">
                   Contact
                 </a>
-
+                {/* 
                 <button
                   onClick={() => router.push("/admin")}
                   className="w-full py-3 rounded-full bg-[#1c3430] text-[#dfc797] font-bold"
                 >
                   Admin Login
-                </button>
+                </button> */}
               </div>
             </div>
           )}

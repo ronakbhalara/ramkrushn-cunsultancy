@@ -1,27 +1,21 @@
-import pool from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc, getDoc, query, where, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-// GET documents for a specific loan
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const loanId = searchParams.get('loanId');
 
-    if (!loanId) {
-      return NextResponse.json(
-        { success: false, message: 'Loan ID is required' },
-        { status: 400 }
-      );
-    }
+    if (!loanId) return NextResponse.json({ success: false, message: 'Loan ID is required' }, { status: 400 });
 
-    const result = await pool.query(
-      'SELECT * FROM loan_documents WHERE loan_id = $1 ORDER BY created_at DESC',
-      [loanId]
-    );
+    const q = query(collection(db, 'loan_documents'), where('loan_id', '==', loanId));
+    const snapshot = await getDocs(q);
+    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-    return NextResponse.json({ success: true, data: result.rows });
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching loan documents:', error);
     return NextResponse.json(
@@ -31,105 +25,61 @@ export async function GET(request) {
   }
 }
 
-// POST - Save document metadata to database
 export async function POST(request) {
   try {
     const body = await request.json();
     const documents = Array.isArray(body) ? body : [body];
 
-    if (documents.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'No documents to save' },
-        { status: 400 }
-      );
-    }
+    if (documents.length === 0) return NextResponse.json({ success: false, message: 'No documents to save' }, { status: 400 });
 
     const savedDocuments = [];
-
-    for (const doc of documents) {
-      const result = await pool.query(
-        `INSERT INTO loan_documents (loan_id, document_name, original_name, file_size, mime_type)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING *`,
-        [doc.loan_id, doc.document_name, doc.original_name, doc.file_size, doc.mime_type]
-      );
-      savedDocuments.push(result.rows[0]);
+    for (const docData of documents) {
+      const newRef = doc(collection(db, 'loan_documents'));
+      const newDoc = {
+        loan_id: docData.loan_id,
+        document_name: docData.document_name,
+        original_name: docData.original_name,
+        file_size: docData.file_size,
+        mime_type: docData.mime_type,
+        created_at: new Date().toISOString()
+      };
+      await setDoc(newRef, newDoc);
+      savedDocuments.push({ id: newRef.id, ...newDoc });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `${savedDocuments.length} documents saved successfully`,
-      data: savedDocuments 
-    });
+    return NextResponse.json({ success: true, message: `${savedDocuments.length} documents saved successfully`, data: savedDocuments });
   } catch (error) {
     console.error('Error saving loan documents:', error);
-    return NextResponse.json(
-      { success: false, message: 'Failed to save loan documents' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Failed to save loan documents' }, { status: 500 });
   }
 }
 
-// DELETE - Delete a document
 export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get('id');
 
-    if (!documentId) {
-      return NextResponse.json(
-        { success: false, message: 'Document ID is required' },
-        { status: 400 }
-      );
-    }
+    if (!documentId) return NextResponse.json({ success: false, message: 'Document ID is required' }, { status: 400 });
 
-    // First get the document info to get the filename
-    const docResult = await pool.query(
-      'SELECT * FROM loan_documents WHERE id = $1',
-      [documentId]
-    );
+    const docRef = doc(db, 'loan_documents', documentId);
+    const docSnap = await getDoc(docRef);
 
-    if (docResult.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Document not found' },
-        { status: 404 }
-      );
-    }
+    if (!docSnap.exists()) return NextResponse.json({ success: false, message: 'Document not found' }, { status: 404 });
 
-    const document = docResult.rows[0];
+    const documentData = docSnap.data();
 
-    // Delete the file from the uploads folder
     try {
-      const uploadDir = process.env.LOAN_DOCUMENT || 'D:/Loan-Document';
-      const filePath = path.join(uploadDir, document.document_name);
-      console.log('Attempting to delete file:', filePath);
-      console.log('Document info:', document);
-      
-      // Check if file exists before deleting
+      const uploadDir = process.env.LOAN_DOCUMENT || 'D:\\CRM-Document\\Loan-Document';
+      const filePath = path.join(uploadDir, documentData.document_name);
       await fs.access(filePath);
       await fs.unlink(filePath);
-      console.log(`File deleted successfully: ${filePath}`);
-    } catch (fileError) {
-      console.error('File deletion error:', fileError.message);
-      console.warn('File not found or already deleted:', fileError.message);
-      // Continue with database deletion even if file doesn't exist
-    }
+    } catch (fileError) {}
 
-    // Delete the database record
-    const result = await pool.query(
-      'DELETE FROM loan_documents WHERE id = $1 RETURNING *',
-      [documentId]
-    );
+    await deleteDoc(docRef);
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Document and file deleted successfully' 
-    });
+    return NextResponse.json({ success: true, message: 'Document and file deleted successfully' });
   } catch (error) {
     console.error('Error deleting loan document:', error);
-    return NextResponse.json(
-      { success: false, message: 'Failed to delete loan document' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Failed to delete loan document' }, { status: 500 });
   }
 }

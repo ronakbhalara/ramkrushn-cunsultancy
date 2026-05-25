@@ -1,4 +1,5 @@
-import pool from '../../../../lib/db';
+import { db } from '../../../../lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
@@ -7,34 +8,28 @@ export async function POST(request) {
     const { id, taskType } = body;
 
     if (!id || !taskType) {
-      return NextResponse.json(
-        { success: false, message: 'ID and taskType are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'ID and taskType are required' }, { status: 400 });
     }
 
-    let query = '';
+    const recordRef = doc(db, 'gst_records', id);
+    const recordSnap = await getDoc(recordRef);
+
+    if (!recordSnap.exists()) {
+      return NextResponse.json({ success: false, message: 'GST record not found' }, { status: 404 });
+    }
+
+    const updateData = {};
     if (taskType === 'GSTR-1') {
-      query = 'UPDATE gst_records SET last_gstr1_filed_date = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *';
+      updateData.last_gstr1_filed_date = new Date().toISOString();
     } else if (taskType === 'GSTR-3B') {
-      query = 'UPDATE gst_records SET last_gstr3b_filed_date = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *';
+      updateData.last_gstr3b_filed_date = new Date().toISOString();
     } else {
-      return NextResponse.json(
-        { success: false, message: 'Invalid taskType' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Invalid taskType' }, { status: 400 });
     }
 
-    const result = await pool.query(query, [id]);
+    await updateDoc(recordRef, updateData);
 
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'GST record not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ success: true, data: result.rows[0] });
+    return NextResponse.json({ success: true, data: { id, ...recordSnap.data(), ...updateData } });
   } catch (error) {
     console.error('Error updating GST task:', error);
     return NextResponse.json(

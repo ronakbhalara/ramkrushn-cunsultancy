@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import pool from '../../../lib/db.js';
+import { db } from '../../../lib/firebase.js';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request) {
@@ -13,20 +14,20 @@ export async function POST(request) {
       );
     }
 
-    // Check if user exists
-    const userResult = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
+    // Check if user exists in Firestore
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('email', '==', email));
+    const querySnapshot = await getDocs(q);
 
-    if (userResult.rows.length === 0) {
+    if (querySnapshot.empty) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    const user = userResult.rows[0];
+    const userDoc = querySnapshot.docs[0];
+    const user = userDoc.data();
 
     // Verify old password is correct
     const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
@@ -52,10 +53,10 @@ export async function POST(request) {
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password in database
-    await pool.query(
-      'UPDATE users SET password = $1 WHERE email = $2',
-      [hashedNewPassword, email]
-    );
+    const userDocRef = doc(db, 'users', userDoc.id);
+    await updateDoc(userDocRef, {
+      password: hashedNewPassword
+    });
 
     return NextResponse.json({
       message: 'Password changed successfully'

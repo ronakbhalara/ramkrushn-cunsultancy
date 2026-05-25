@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import pool from '../../../lib/db.js';
+import { db } from '../../../lib/firebase.js';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -16,19 +17,22 @@ export async function POST(request) {
       );
     }
 
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
+    // Query Firestore for the user by email
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('email', '==', email));
+    const querySnapshot = await getDocs(q);
 
-    if (result.rows.length === 0) {
+    if (querySnapshot.empty) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
-    const user = result.rows[0];
+    // Assume the first matched document is the user
+    const userDoc = querySnapshot.docs[0];
+    const user = userDoc.data();
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -41,7 +45,7 @@ export async function POST(request) {
     // Create JWT token
     const token = jwt.sign(
       { 
-        userId: user.id, 
+        userId: user.id || userDoc.id, 
         email: user.email 
       },
       JWT_SECRET,
@@ -52,7 +56,7 @@ export async function POST(request) {
     const response = NextResponse.json({
       message: 'Login successful',
       user: {
-        id: user.id,
+        id: user.id || userDoc.id,
         email: user.email,
         created_at: user.created_at
       }

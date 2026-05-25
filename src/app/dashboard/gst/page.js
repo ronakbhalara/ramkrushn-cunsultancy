@@ -5,6 +5,7 @@ import React from "react";
 import { toast } from "react-toastify";
 import GSTForm from "../../../components/GSTForm";
 import GSTInfoModal from "../../../components/GSTInfoModal";
+import TaskForm from "../../../components/TaskForm";
 
 export default function GSTPage() {
   const [gstRecords, setGstRecords] = useState([]);
@@ -16,6 +17,17 @@ export default function GSTPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [selectedGSTForInfo, setSelectedGSTForInfo] = useState(null);
+
+  const [tasks, setTasks] = useState([]);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [taskFormData, setTaskFormData] = useState({
+    category: "GST",
+    title: "",
+    description: "",
+    due_date: "",
+    status: "PENDING",
+  });
 
   const [formData, setFormData] = useState({
     name: "",
@@ -36,7 +48,20 @@ export default function GSTPage() {
 
   useEffect(() => {
     fetchGSTRecords();
+    fetchTasks();
   }, []);
+
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch("/api/tasks");
+      const data = await response.json();
+      if (data.success) {
+        setTasks(data.data);
+      }
+    } catch (error) {
+      toast.error("Failed to fetch tasks");
+    }
+  };
 
   const fetchGSTRecords = async () => {
     try {
@@ -193,6 +218,122 @@ export default function GSTPage() {
     setShowForm(false);
   };
 
+  const handleTaskSubmit = async () => {
+    try {
+      const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
+      const method = editingTask ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...taskFormData, category: "GST" }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(
+          editingTask ? "Task updated successfully!" : "Task added successfully!"
+        );
+        resetTaskForm();
+        fetchTasks();
+        setShowTaskForm(false);
+      } else {
+        toast.error(data.message || "Operation failed");
+      }
+    } catch (error) {
+      toast.error("Network error");
+    }
+  };
+
+  const handleTaskEdit = (task) => {
+    setEditingTask(task);
+    setTaskFormData({
+      category: task.category,
+      title: task.title,
+      description: task.description || "",
+      due_date: task.due_date || "",
+      status: task.status,
+    });
+    setShowTaskForm(true);
+  };
+
+  const handleTaskDelete = async (id) => {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+
+    try {
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Task deleted successfully!");
+        fetchTasks();
+      } else {
+        toast.error(data.message || "Failed to delete task");
+      }
+    } catch (error) {
+      toast.error("Network error");
+    }
+  };
+
+  const toggleTaskStatus = async (task) => {
+    const newStatus = task.status === "PENDING" ? "COMPLETED" : "PENDING";
+    try {
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...task, status: newStatus }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`Task marked as ${newStatus.toLowerCase()}`);
+        fetchTasks();
+      }
+    } catch (error) {
+      toast.error("Failed to update task status");
+    }
+  };
+
+  const resetTaskForm = () => {
+    setTaskFormData({
+      category: "GST",
+      title: "",
+      description: "",
+      due_date: "",
+      status: "PENDING",
+    });
+    setEditingTask(null);
+  };
+
+  const handleTaskCancel = () => {
+    resetTaskForm();
+    setShowTaskForm(false);
+  };
+
+  const getDueDateColor = (dueDate, status) => {
+    if (!dueDate) return "text-gray-500";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+
+    const diffTime = due - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return "text-red-600 font-bold";
+    if (diffDays <= 5) return "text-yellow-600 font-bold";
+    return "text-green-600 font-bold";
+  };
+
   const handleInfo = (gst) => {
     setSelectedGSTForInfo(gst);
     setShowInfoModal(true);
@@ -302,11 +443,7 @@ export default function GSTPage() {
 
   const filteredGSTRecords = gstRecords.filter(gst => {
     if (statusFilter === "ALL") return true;
-    if (statusFilter === "TASK") {
-      const today = new Date().getDate();
-      if (today >= 1 && today <= 20) {
-        return !isGSTR3BCompleted(gst);
-      }
+    if (statusFilter === "TASK" || statusFilter === "COMPLETED_TASK") {
       return false;
     }
     return gst.subject === statusFilter;
@@ -322,42 +459,58 @@ export default function GSTPage() {
 
   return (
     <div className="">
-      <div className="flex justify-between items-center flex-wrap mb-6">
+      <div className="sm:flex block justify-between items-center mb-6">
         {/* Status Filter */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setStatusFilter("ALL")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "ALL"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setStatusFilter("BUSINESS")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "BUSINESS"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            Business
-          </button>
-          <button
-            onClick={() => setStatusFilter("TASK")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "TASK"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            Task
-          </button>
+        <div className="flex flex-wrap gap-4 items-center">
+          {/* GST Filters */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setStatusFilter("ALL")}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "ALL"
+                ? "bg-[#dfc797] text-[#17312d]"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setStatusFilter("BUSINESS")}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "BUSINESS"
+                ? "bg-[#dfc797] text-[#17312d]"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+            >
+              Business
+            </button>
+          </div>
+
+          {/* Task Filters */}
+          <div className="flex gap-2 bg-gray-100 p-1.5 rounded-xl border border-gray-200 shadow-sm">
+            <button
+              onClick={() => setStatusFilter("TASK")}
+              className={`px-4 py-1.5 rounded-lg font-semibold transition-colors ${statusFilter === "TASK"
+                ? "bg-white text-[#17312d] shadow-sm border border-gray-200"
+                : "text-gray-600 hover:bg-gray-200"
+                }`}
+            >
+              Pending Task
+            </button>
+            <button
+              onClick={() => setStatusFilter("COMPLETED_TASK")}
+              className={`px-4 py-1.5 rounded-lg font-semibold transition-colors ${statusFilter === "COMPLETED_TASK"
+                ? "bg-white text-[#17312d] shadow-sm border border-gray-200"
+                : "text-gray-600 hover:bg-gray-200"
+                }`}
+            >
+              Complete Task
+            </button>
+          </div>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? setShowTaskForm(true) : setShowForm(true)}
           className="px-4 py-2 sm:mt-0 mt-5 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors"
         >
-          Add New GST
+          {statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? "Add New Task" : "Add New GST"}
         </button>
       </div>
 
@@ -373,270 +526,363 @@ export default function GSTPage() {
         />
       )}
 
+      {showTaskForm && (
+        <TaskForm
+          formData={taskFormData}
+          setFormData={setTaskFormData}
+          onSubmit={handleTaskSubmit}
+          onCancel={handleTaskCancel}
+          editingTask={editingTask}
+        />
+      )}
+
       {/* GST Records Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  No.
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Phone
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Subject
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  GST No
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  PAN No
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredGSTRecords.length === 0 ? (
+              {statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? (
                 <tr>
-                  <td
-                    colSpan="7"
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    {statusFilter === "TASK" && new Date().getDate() > 20
-                      ? "Tasks are only visible between the 1st and 20th of the month."
-                      : `No ${statusFilter === "ALL" ? "" : statusFilter.toLowerCase()} GST records found. Click "Add New GST" to get started.`}
-                  </td>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Series Number</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Due Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
               ) : (
-                filteredGSTRecords
-                  .map((gst, index) => {
-                    const rowBgClass = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
-                    const hasTags = (isGSTR1Completed(gst) || isGSTR3BCompleted(gst)) && statusFilter !== "TASK";
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    No.
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Phone
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Subject
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    GST No
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    PAN No
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              )}
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? (
+                tasks.filter(t => t.category === "GST" && (statusFilter === "TASK" ? t.status !== "COMPLETED" : t.status === "COMPLETED")).length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                      No {statusFilter === "TASK" ? "pending" : "completed"} GST tasks found.
+                    </td>
+                  </tr>
+                ) : (
+                  tasks.filter(t => t.category === "GST" && (statusFilter === "TASK" ? t.status !== "COMPLETED" : t.status === "COMPLETED")).map((task, index) => {
+                    const rowBgClass = index % 2 === 0 ? 'bg-gray-100' : 'bg-white hover:bg-gray-50';
                     return (
-                      <React.Fragment key={gst.id}>
-                        <tr
-                          className={`cursor-pointer transition-colors ${rowBgClass} ${hasTags && expandedGST !== gst.id ? 'border-b-0' : ''}`}
-                          onClick={() => toggleGSTDetails(gst.id)}
-                        >
-                          <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
-                            {gst.number_series}
+                      <React.Fragment key={task.id}>
+                        <tr className={`transition-colors ${rowBgClass} ${task.description ? 'border-b-0' : ''}`}>
+                          <td className={`px-4 py-3 text-sm font-bold text-gray-900 ${task.status === "COMPLETED" ? "line-through text-gray-400" : ""}`}>
+                            {task.title}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            {gst.name}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            {gst.phone_no}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
-                                ? "bg-blue-100 text-blue-800"
-                                : gst.subject === "PARTNERSHIP"
-                                  ? "bg-green-100 text-green-800"
-                                  : gst.subject === "BUSINESS"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                            >
-                              {gst.subject || "N/A"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            {gst.gst_no || "-"}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            {gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}
+                          <td className={`px-4 py-3 text-sm ${getDueDateColor(task.due_date, task.status)}`}>
+                            {task.due_date ? new Date(task.due_date).toLocaleDateString("en-IN") : "-"}
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            {statusFilter === "TASK" ? (
-                              <div className="flex gap-2">
-                                {!isGSTR1Completed(gst) && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTaskComplete(gst.id, 'GSTR-1');
-                                    }}
-                                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors border border-blue-300"
-                                  >
-                                    GSTR-1
-                                  </button>
-                                )}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleTaskComplete(gst.id, 'GSTR-3B');
-                                  }}
-                                  className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors border border-green-300"
-                                >
-                                  GSTR-3B
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(gst);
-                                  }}
-                                  className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(gst.id);
-                                  }}
-                                  className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
-                                >
-                                  Delete
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleInfo(gst);
-                                  }}
-                                  className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors flex items-center gap-1"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                  </svg>
-                                  Info
-                                </button>
-                              </div>
-                            )}
+                            <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${task.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                              {task.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }}
+                                className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${task.status === "COMPLETED" ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-green-100 text-green-700 hover:bg-green-200"}`}
+                              >
+                                {task.status === "COMPLETED" ? "Pending" : "Done"}
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleTaskEdit(task); }}
+                                className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleTaskDelete(task.id); }}
+                                className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
-                        {hasTags && (
-                          <tr
-                            className={`cursor-pointer transition-colors ${rowBgClass}`}
-                            onClick={() => toggleGSTDetails(gst.id)}
-                          >
-                            <td colSpan="7" className="px-4 pb-3 pt-0 text-sm">
-                              <div className="flex gap-2 items-center">
-                                <span className="font-bold text-gray-900">Task Complete: </span>
-                                {isGSTR1Completed(gst) && (
-                                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex items-center gap-1">
-                                    GSTR-1
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                  </span>
-                                )}
-                                {isGSTR3BCompleted(gst) && (
-                                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex items-center gap-1">
-                                    GSTR-3B
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                        {expandedGST === gst.id && (
-                          <tr className="animate-in slide-in-from-top-1 duration-300">
-                            <td colSpan="7" className="px-0 py-0">
-                              <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                  {/* Personal Information */}
-                                  <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
-                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
-                                    <div className="space-y-2">
-                                      <div>
-                                        <p className="text-xs text-gray-500">Name</p>
-                                        <p className="font-medium text-gray-900">{gst.name}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Phone</p>
-                                        <p className="font-medium text-gray-900">{gst.phone_no}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">PAN Card</p>
-                                        <p className="font-medium text-gray-900">{gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Password</p>
-                                        <p className="font-medium text-gray-900">{gst.password || "-"}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* GST Information */}
-                                  <div className="animate-in fade-in-50 duration-500 delay-200">
-                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">GST Information</h4>
-                                    <div className="space-y-2">
-                                      <div>
-                                        <p className="text-xs text-gray-500">GST Number</p>
-                                        <p className="font-medium text-gray-900">{gst.gst_no || "-"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Subject</p>
-                                        <span
-                                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
-                                            ? "bg-blue-100 text-blue-800"
-                                            : gst.subject === "PARTNERSHIP"
-                                              ? "bg-green-100 text-green-800"
-                                              : gst.subject === "BUSINESS"
-                                                ? "bg-purple-100 text-purple-800"
-                                                : "bg-gray-100 text-gray-800"
-                                            }`}
-                                        >
-                                          {gst.subject || "N/A"}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Assessment Years</p>
-                                        <p className="font-medium text-gray-900">
-                                          {gst.assessment_year && gst.assessment_year.length > 0
-                                            ? gst.assessment_year.join(", ")
-                                            : "-"}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">GST Filing Frequency</p>
-                                        <p className="font-medium text-sm  text-gray-900">{gst.gst_filing_frequency || "-"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">GST Filing Date</p>
-                                        <p className="font-medium text-sm text-gray-900">{formatDateTime(gst.gst_filing_date)}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Reference Information */}
-                                  <div className="animate-in fade-in-50 duration-500 delay-300">
-                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
-                                    <div className="space-y-2">
-                                      <div>
-                                        <p className="text-xs text-gray-500">Reference Name</p>
-                                        <p className="font-medium text-gray-900">{gst.reference_name || "-"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Reference Phone</p>
-                                        <p className="font-medium text-gray-900">{gst.reference_phone || "-"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">User ID</p>
-                                        <p className="font-medium text-gray-900">{gst.user_id || "-"}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
+                        {task.description && (
+                          <tr className={`transition-colors ${rowBgClass}`}>
+                            <td colSpan="4" className="px-4 pb-3 pt-0 text-sm">
+                              <span className="font-bold text-gray-900">Note: </span>
+                              <span className="font-semibold text-gray-800 whitespace-pre-wrap">{task.description}</span>
                             </td>
                           </tr>
                         )}
                       </React.Fragment>
                     );
                   })
-              )}
+                )
+              ) : (
+                filteredGSTRecords.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan="7"
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      {statusFilter === "TASK" && new Date().getDate() > 20
+                        ? "Tasks are only visible between the 1st and 20th of the month."
+                        : `No ${statusFilter === "ALL" ? "" : statusFilter.toLowerCase()} GST records found. Click "Add New GST" to get started.`}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredGSTRecords
+                    .map((gst, index) => {
+                      const rowBgClass = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                      const hasTags = (isGSTR1Completed(gst) || isGSTR3BCompleted(gst)) && statusFilter !== "TASK";
+                      return (
+                        <React.Fragment key={gst.id}>
+                          <tr
+                            className={`cursor-pointer transition-colors ${rowBgClass} ${hasTags && expandedGST !== gst.id ? 'border-b-0' : ''}`}
+                            onClick={() => toggleGSTDetails(gst.id)}
+                          >
+                            <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
+                              {gst.number_series}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {gst.name}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {gst.phone_no}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : gst.subject === "PARTNERSHIP"
+                                    ? "bg-green-100 text-green-800"
+                                    : gst.subject === "BUSINESS"
+                                      ? "bg-purple-100 text-purple-800"
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}
+                              >
+                                {gst.subject || "N/A"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {gst.gst_no || "-"}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {statusFilter === "TASK" ? (
+                                <div className="flex gap-2">
+                                  {!isGSTR1Completed(gst) && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTaskComplete(gst.id, 'GSTR-1');
+                                      }}
+                                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors border border-blue-300"
+                                    >
+                                      GSTR-1
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTaskComplete(gst.id, 'GSTR-3B');
+                                    }}
+                                    className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors border border-green-300"
+                                  >
+                                    GSTR-3B
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEdit(gst);
+                                    }}
+                                    className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(gst.id);
+                                    }}
+                                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleInfo(gst);
+                                    }}
+                                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors flex items-center gap-1"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <circle cx="12" cy="12" r="10"></circle>
+                                      <line x1="12" y1="16" x2="12" y2="12"></line>
+                                      <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                    </svg>
+                                    Info
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                          {hasTags && (
+                            <tr
+                              className={`cursor-pointer transition-colors ${rowBgClass}`}
+                              onClick={() => toggleGSTDetails(gst.id)}
+                            >
+                              <td colSpan="7" className="px-4 pb-3 pt-0 text-sm">
+                                <div className="flex gap-2 items-center">
+                                  <span className="font-bold text-gray-900">Task Complete: </span>
+                                  {isGSTR1Completed(gst) && (
+                                    <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex items-center gap-1">
+                                      GSTR-1
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </span>
+                                  )}
+                                  {isGSTR3BCompleted(gst) && (
+                                    <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex items-center gap-1">
+                                      GSTR-3B
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          {expandedGST === gst.id && (
+                            <tr className="animate-in slide-in-from-top-1 duration-300">
+                              <td colSpan="7" className="px-0 py-0">
+                                <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {/* Personal Information */}
+                                    <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
+                                      <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
+                                      <div className="space-y-2">
+                                        <div>
+                                          <p className="text-xs text-gray-500">Name</p>
+                                          <p className="font-medium text-gray-900">{gst.name}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">Phone</p>
+                                          <p className="font-medium text-gray-900">{gst.phone_no}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">PAN Card</p>
+                                          <p className="font-medium text-gray-900">{gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">Password</p>
+                                          <p className="font-medium text-gray-900">{gst.password || "-"}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* GST Information */}
+                                    <div className="animate-in fade-in-50 duration-500 delay-200">
+                                      <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">GST Information</h4>
+                                      <div className="space-y-2">
+                                        <div>
+                                          <p className="text-xs text-gray-500">GST Number</p>
+                                          <p className="font-medium text-gray-900">{gst.gst_no || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">Subject</p>
+                                          <span
+                                            className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
+                                              ? "bg-blue-100 text-blue-800"
+                                              : gst.subject === "PARTNERSHIP"
+                                                ? "bg-green-100 text-green-800"
+                                                : gst.subject === "BUSINESS"
+                                                  ? "bg-purple-100 text-purple-800"
+                                                  : "bg-gray-100 text-gray-800"
+                                              }`}
+                                          >
+                                            {gst.subject || "N/A"}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">Assessment Years</p>
+                                          <p className="font-medium text-gray-900">
+                                            {gst.assessment_year
+                                              ? (() => {
+                                                try {
+                                                  const years = typeof gst.assessment_year === "string"
+                                                    ? JSON.parse(gst.assessment_year)
+                                                    : gst.assessment_year;
+
+                                                  return Array.isArray(years)
+                                                    ? years.join(", ")
+                                                    : years;
+                                                } catch {
+                                                  return gst.assessment_year;
+                                                }
+                                              })()
+                                              : "-"}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">GST Filing Frequency</p>
+                                          <p className="font-medium text-sm  text-gray-900">{gst.gst_filing_frequency || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">GST Filing Date</p>
+                                          <p className="font-medium text-sm text-gray-900">{formatDateTime(gst.gst_filing_date)}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Reference Information */}
+                                    <div className="animate-in fade-in-50 duration-500 delay-300">
+                                      <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
+                                      <div className="space-y-2">
+                                        <div>
+                                          <p className="text-xs text-gray-500">Reference Name</p>
+                                          <p className="font-medium text-gray-900">{gst.reference_name || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">Reference Phone</p>
+                                          <p className="font-medium text-gray-900">{gst.reference_phone || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">User ID</p>
+                                          <p className="font-medium text-gray-900">{gst.user_id || "-"}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    }
+                    )
+                ))
+              }
             </tbody>
           </table>
         </div>

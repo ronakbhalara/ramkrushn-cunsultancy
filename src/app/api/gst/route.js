@@ -1,13 +1,15 @@
-import pool from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 // GET all GST records
 export async function GET() {
   try {
-    const result = await pool.query(
-      'SELECT * FROM gst_records ORDER BY created_at DESC'
-    );
-    return NextResponse.json({ success: true, data: result.rows });
+    const q = query(collection(db, 'gst_records'), orderBy('created_at', 'desc'));
+    const snapshot = await getDocs(q);
+    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching GST records:', error);
     return NextResponse.json(
@@ -21,52 +23,29 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const {
-      name,
-      phone_no,
-      reference_name,
-      reference_phone,
-      pan_card_no,
-      subject,
-      gst_no,
-      user_id,
-      password,
-      assessment_year,
-      gst_filing_date,
-      gst_filing_frequency
-    } = body;
 
     // Generate number series
-    const numberSeriesResult = await pool.query(
-      `SELECT 'G-' || (COALESCE(MAX(CAST(SUBSTRING(number_series, 3) AS INTEGER)), 0) + 1)::TEXT as number_series FROM gst_records WHERE number_series LIKE 'G-%'`
-    );
-    const number_series = numberSeriesResult.rows[0].number_series;
+    const snapshot = await getDocs(collection(db, 'gst_records'));
+    let maxNum = 0;
+    snapshot.forEach(docSnap => {
+      const ns = docSnap.data().number_series;
+      if (ns && ns.startsWith('G-')) {
+        const num = parseInt(ns.substring(2));
+        if (num > maxNum) maxNum = num;
+      }
+    });
+    
+    const newRecordRef = doc(collection(db, 'gst_records'));
+    const newRecord = {
+      ...body,
+      number_series: `G-${maxNum + 1}`,
+      assessment_year: body.assessment_year ? JSON.stringify(body.assessment_year) : null,
+      created_at: new Date().toISOString()
+    };
+    
+    await setDoc(newRecordRef, newRecord);
 
-    const result = await pool.query(
-      `INSERT INTO gst_records (
-        number_series, name, phone_no, reference_name, reference_phone,
-        pan_card_no, subject, gst_no, user_id, password, assessment_year,
-        gst_filing_date, gst_filing_frequency
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *`,
-      [
-        number_series,
-        name,
-        phone_no,
-        reference_name,
-        reference_phone,
-        pan_card_no,
-        subject,
-        gst_no,
-        user_id,
-        password,
-        JSON.stringify(assessment_year),
-        gst_filing_date,
-        gst_filing_frequency
-      ]
-    );
-
-    return NextResponse.json({ success: true, data: result.rows[0] });
+    return NextResponse.json({ success: true, data: { id: newRecordRef.id, ...newRecord } });
   } catch (error) {
     console.error('Error creating GST record:', error);
     return NextResponse.json(
@@ -80,54 +59,21 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const {
-      id,
-      name,
-      phone_no,
-      reference_name,
-      reference_phone,
-      pan_card_no,
-      subject,
-      gst_no,
-      user_id,
-      password,
-      assessment_year,
-      gst_filing_date,
-      gst_filing_frequency
-    } = body;
+    const { id, ...updateData } = body;
 
-    const result = await pool.query(
-      `UPDATE gst_records SET 
-        name = $1, phone_no = $2, reference_name = $3, reference_phone = $4,
-        pan_card_no = $5, subject = $6, gst_no = $7, user_id = $8, password = $9,
-        assessment_year = $10, gst_filing_date = $11, gst_filing_frequency = $12, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $13
-      RETURNING *`,
-      [
-        name,
-        phone_no,
-        reference_name,
-        reference_phone,
-        pan_card_no,
-        subject,
-        gst_no,
-        user_id,
-        password,
-        JSON.stringify(assessment_year),
-        gst_filing_date,
-        gst_filing_frequency,
-        id
-      ]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'GST record not found' },
-        { status: 404 }
-      );
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'ID is required' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, data: result.rows[0] });
+    if (updateData.assessment_year) {
+       updateData.assessment_year = JSON.stringify(updateData.assessment_year);
+    }
+    updateData.updated_at = new Date().toISOString();
+
+    const recordRef = doc(db, 'gst_records', id);
+    await updateDoc(recordRef, updateData);
+
+    return NextResponse.json({ success: true, data: { id, ...updateData } });
   } catch (error) {
     console.error('Error updating GST record:', error);
     return NextResponse.json(
@@ -150,17 +96,8 @@ export async function DELETE(request) {
       );
     }
 
-    const result = await pool.query(
-      'DELETE FROM gst_records WHERE id = $1 RETURNING *',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'GST record not found' },
-        { status: 404 }
-      );
-    }
+    const recordRef = doc(db, 'gst_records', id);
+    await deleteDoc(recordRef);
 
     return NextResponse.json({ success: true, message: 'GST record deleted successfully' });
   } catch (error) {

@@ -1,4 +1,5 @@
-import pool from '../../../../lib/db';
+import { db } from '../../../../lib/firebase';
+import { doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 // DELETE - Delete a hisab entry
@@ -6,17 +7,16 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
 
-    const result = await pool.query(
-      'DELETE FROM daily_hisab WHERE id = $1 RETURNING *',
-      [id]
-    );
-
-    if (result.rowCount === 0) {
+    const recordRef = doc(db, 'daily_hisab', id);
+    const snap = await getDoc(recordRef);
+    if (!snap.exists()) {
       return NextResponse.json(
         { success: false, message: 'Entry not found' },
         { status: 404 }
       );
     }
+    
+    await deleteDoc(recordRef);
 
     return NextResponse.json({
       success: true,

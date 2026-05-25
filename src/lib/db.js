@@ -1,23 +1,10 @@
-// import { Pool } from "pg";
+// PostgreSQL connection has been completely removed as requested.
+// The app will now use Firebase Firestore exclusively.
 
-// const pool = new Pool({
-//   connectionString: process.env.DATABASE_URL,
-
-//   ssl: {
-//     rejectUnauthorized: false,
-//   },
-// });
-
-// export default pool;
-
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
+const pool = {
+  query: async () => {
+    throw new Error("PostgreSQL is disconnected! This API route needs to be migrated to Firebase Firestore.");
+  }
+};
 
 export default pool;

@@ -206,7 +206,6 @@ export default function SettingsPage() {
                     <h3 className="text-base font-semibold text-gray-900">
                       {setting.status_name}
                     </h3>
-                    <span className="text-xs text-gray-400">#{setting.id}</span>
                   </div>
                   <div className="flex justify-end space-x-1.5">
                     <button

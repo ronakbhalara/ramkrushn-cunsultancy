@@ -1,72 +1,81 @@
-import pool from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // Get total GST records
-    const gstResult = await pool.query('SELECT COUNT(*) as count FROM gst_records');
-    const totalGST = parseInt(gstResult.rows[0].count);
+    // Helper function to get collection size
+    const getCollectionSize = async (colName) => {
+      try {
+        const snapshot = await getDocs(collection(db, colName));
+        return snapshot.size;
+      } catch (e) {
+        return 0;
+      }
+    };
 
-    // Get total loans
-    const loansResult = await pool.query('SELECT COUNT(*) as count, COALESCE(SUM(loan_amount), 0) as total_amount FROM loans');
-    const totalLoans = parseInt(loansResult.rows[0].count);
-    const totalLoanAmount = parseFloat(loansResult.rows[0].total_amount);
+    // Get total records
+    const totalGST = await getCollectionSize('gst_records');
+    const totalIncomeTax = await getCollectionSize('income_tax_records');
+    const totalClients = await getCollectionSize('users');
+    const totalAccount = await getCollectionSize('accounts');
+    const totalOthers = await getCollectionSize('other_records');
 
-    // Get total income tax records
-    const incomeTaxResult = await pool.query('SELECT COUNT(*) as count FROM income_tax_records');
-    const totalIncomeTax = parseInt(incomeTaxResult.rows[0].count);
-
-    // Get total users/clients
-    const usersResult = await pool.query('SELECT COUNT(*) as count FROM users');
-    const totalClients = parseInt(usersResult.rows[0].count);
-
-    // Get total account records
-    let totalAccount = 0;
+    // Get total loans and loan amount
+    let totalLoans = 0;
+    let totalLoanAmount = 0;
+    const recentLoans = [];
     try {
-      const accountResult = await pool.query('SELECT COUNT(*) as count FROM accounts');
-      totalAccount = parseInt(accountResult.rows[0].count);
+      const loansSnapshot = await getDocs(collection(db, 'loans'));
+      totalLoans = loansSnapshot.size;
+      loansSnapshot.forEach(doc => {
+        const data = doc.data();
+        totalLoanAmount += parseFloat(data.loan_amount || 0);
+        recentLoans.push({
+          id: doc.id,
+          name: data.name,
+          created_at: data.created_at,
+          type: 'Loan'
+        });
+      });
     } catch (error) {
-      console.log('Account records table does not exist yet');
-      totalAccount = 0;
+      console.log('Error fetching loans:', error);
     }
 
-    // Get total other records
-    let totalOthers = 0;
+    // Get recent activities for accounts
+    const recentAccount = [];
     try {
-      const othersResult = await pool.query('SELECT COUNT(*) as count FROM other_records');
-      totalOthers = parseInt(othersResult.rows[0].count);
-    } catch (error) {
-      console.log('Other records table does not exist yet');
-      totalOthers = 0;
-    }
+      const accountSnapshot = await getDocs(collection(db, 'accounts'));
+      accountSnapshot.forEach(doc => {
+        const data = doc.data();
+        recentAccount.push({
+          id: doc.id,
+          name: data.name,
+          created_at: data.created_at,
+          type: 'Account'
+        });
+      });
+    } catch (error) {}
 
-    // Get recent activities (latest 10 records from all tables)
-    const recentLoans = await pool.query(
-      'SELECT id, name, created_at, \'Loan\' as type FROM loans ORDER BY created_at DESC LIMIT 5'
-    );
-
-    let recentAccount = { rows: [] };
+    // Get recent activities for others
+    const recentOthers = [];
     try {
-      recentAccount = await pool.query(
-        'SELECT id, name, created_at, \'Account\' as type FROM accounts ORDER BY created_at DESC LIMIT 5'
-      );
-    } catch (error) {
-      console.log('Account records table does not exist yet');
-    }
-
-    let recentOthers = { rows: [] };
-    try {
-      recentOthers = await pool.query(
-        'SELECT id, name, created_at, \'Others\' as type FROM other_records ORDER BY created_at DESC LIMIT 5'
-      );
-    } catch (error) {
-      console.log('Other records table does not exist yet');
-    }
+      const othersSnapshot = await getDocs(collection(db, 'other_records'));
+      othersSnapshot.forEach(doc => {
+        const data = doc.data();
+        recentOthers.push({
+          id: doc.id,
+          name: data.name,
+          created_at: data.created_at,
+          type: 'Others'
+        });
+      });
+    } catch (error) {}
 
     // Combine and sort recent activities
     const allActivities = [
-      ...recentLoans.rows,
-    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
+      ...recentLoans,
+    ].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 10);
 
     const dashboardData = {
       stats: {

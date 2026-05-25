@@ -1,13 +1,22 @@
-import pool from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { collection, getDocs, doc, setDoc, query, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 // GET all tasks
 export async function GET() {
   try {
-    const result = await pool.query(
-      'SELECT *, TO_CHAR(due_date, \'YYYY-MM-DD\') as due_date FROM tasks ORDER BY created_at DESC'
-    );
-    return NextResponse.json({ success: true, data: result.rows });
+    const q = query(collection(db, 'tasks'), orderBy('created_at', 'desc'));
+    const snapshot = await getDocs(q);
+    const data = snapshot.docs.map(doc => {
+       const task = doc.data();
+       return {
+         id: doc.id,
+         ...task,
+         due_date: task.due_date ? (typeof task.due_date === 'string' ? task.due_date.split('T')[0] : task.due_date) : null
+       };
+    });
+    
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching tasks:', error);
     return NextResponse.json(
@@ -23,16 +32,21 @@ export async function POST(request) {
     const body = await request.json();
     const { category, title, description, due_date, status } = body;
 
-    const result = await pool.query(
-      `INSERT INTO tasks (category, title, description, due_date, status)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [category, title, description, due_date || null, status || 'PENDING']
-    );
+    const newTaskRef = doc(collection(db, 'tasks'));
+    const newTask = {
+      category: category || '',
+      title: title || '',
+      description: description || '',
+      due_date: due_date || null,
+      status: status || 'PENDING',
+      created_at: new Date().toISOString()
+    };
+    
+    await setDoc(newTaskRef, newTask);
 
     return NextResponse.json({
       success: true,
-      data: result.rows[0]
+      data: { id: newTaskRef.id, ...newTask }
     });
   } catch (error) {
     console.error('Error creating task:', error);

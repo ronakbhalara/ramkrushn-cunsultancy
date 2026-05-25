@@ -35,6 +35,7 @@ export default function TaskForm({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
             >
               <option value="LOAN">Loan</option>
+              <option value="GST">GST</option>
             </select>
           </div>
 

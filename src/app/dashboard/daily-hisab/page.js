@@ -72,7 +72,9 @@ export default function DailyHisabPage() {
     }
   };
 
-  const filteredEntries = entries.filter((e) => e.entry_date === filterDate);
+  const filteredEntries = entries.filter(
+    (e) => e.date === filterDate
+  );
 
   // Calculate Totals based on filtered entries
   const totalIncome = filteredEntries
@@ -87,7 +89,7 @@ export default function DailyHisabPage() {
 
   const exportToExcel = () => {
     const dataToExport = filteredEntries.map(entry => ({
-      "Date": entry.entry_date ? new Date(entry.entry_date).toLocaleDateString('en-IN') : "-",
+      "Date": entry.date ? new Date(entry.date).toLocaleDateString('en-IN') : "-",
       "Description": entry.description || "-",
       "Type": entry.type || "-",
       "Amount": parseFloat(entry.amount) || 0,

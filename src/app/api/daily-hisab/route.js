@@ -1,13 +1,19 @@
-import pool from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { collection, getDocs, doc, setDoc, query, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 // GET all hisab entries
 export async function GET() {
   try {
-    const result = await pool.query(
-      'SELECT *, TO_CHAR(created_at, \'YYYY-MM-DD\') as entry_date FROM daily_hisab ORDER BY created_at DESC'
-    );
-    return NextResponse.json({ success: true, data: result.rows });
+    const q = query(collection(db, 'daily_hisab'), orderBy('created_at', 'desc'));
+    const snapshot = await getDocs(q);
+    const data = snapshot.docs.map(doc => ({ 
+       id: doc.id, 
+       ...doc.data(),
+       entry_date: doc.data().created_at ? doc.data().created_at.split('T')[0] : null
+    }));
+    
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching hisab entries:', error);
     return NextResponse.json(
@@ -23,16 +29,22 @@ export async function POST(request) {
     const body = await request.json();
     const { type, amount, description, date } = body;
 
-    const result = await pool.query(
-      `INSERT INTO daily_hisab (type, amount, description)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [type, amount, description]
-    );
+    const newRecordRef = doc(collection(db, 'daily_hisab'));
+    const currentDate = new Date().toISOString().split("T")[0];
+
+    const newRecord = {
+      type: type || '',
+      amount: amount || 0,
+      description: description || '',
+      date: date || currentDate,
+      created_at: new Date().toISOString()
+    };
+    
+    await setDoc(newRecordRef, newRecord);
 
     return NextResponse.json({
       success: true,
-      data: result.rows[0]
+      data: { id: newRecordRef.id, ...newRecord }
     });
   } catch (error) {
     console.error('Error creating hisab entry:', error);

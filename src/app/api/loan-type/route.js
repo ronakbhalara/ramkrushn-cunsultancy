@@ -1,13 +1,13 @@
-import pool from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 // GET all Loan Types
 export async function GET() {
   try {
-    const result = await pool.query(
-      'SELECT id, type_name FROM loan_type ORDER BY id'
-    );
-    return NextResponse.json({ success: true, data: result.rows });
+    const snapshot = await getDocs(collection(db, 'loan_type'));
+    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching loan types:', error);
     return NextResponse.json(
@@ -23,12 +23,11 @@ export async function POST(request) {
     const body = await request.json();
     const { type_name } = body;
 
-    const result = await pool.query(
-      `INSERT INTO loan_type (type_name) VALUES ($1) RETURNING *`,
-      [type_name]
-    );
+    const newRef = doc(collection(db, 'loan_type'));
+    const newData = { type_name, created_at: new Date().toISOString() };
+    await setDoc(newRef, newData);
 
-    return NextResponse.json({ success: true, data: result.rows[0] });
+    return NextResponse.json({ success: true, data: { id: newRef.id, ...newData } });
   } catch (error) {
     console.error('Error creating loan type:', error);
     return NextResponse.json(
@@ -46,29 +45,12 @@ export async function PUT(request) {
     const body = await request.json();
     const { type_name } = body;
 
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: 'ID is required' },
-        { status: 400 }
-      );
-    }
+    if (!id) return NextResponse.json({ success: false, message: 'ID is required' }, { status: 400 });
 
-    const result = await pool.query(
-      `UPDATE loan_type SET 
-        type_name = $1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
-      RETURNING *`,
-      [type_name, id]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Loan type not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ success: true, data: result.rows[0] });
+    const recordRef = doc(db, 'loan_type', id);
+    await updateDoc(recordRef, { type_name, updated_at: new Date().toISOString() });
+    
+    return NextResponse.json({ success: true, data: { id, type_name } });
   } catch (error) {
     console.error('Error updating loan type:', error);
     return NextResponse.json(
@@ -84,24 +66,9 @@ export async function DELETE(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: 'ID is required' },
-        { status: 400 }
-      );
-    }
+    if (!id) return NextResponse.json({ success: false, message: 'ID is required' }, { status: 400 });
 
-    const result = await pool.query(
-      'DELETE FROM loan_type WHERE id = $1 RETURNING *',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Loan type not found' },
-        { status: 404 }
-      );
-    }
+    await deleteDoc(doc(db, 'loan_type', id));
 
     return NextResponse.json({ success: true, message: 'Loan type deleted successfully' });
   } catch (error) {

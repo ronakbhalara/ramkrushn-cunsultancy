@@ -97,12 +97,12 @@ export default function AccountPage() {
     }
 
     try {
-      const url = editingAccount
-        ? "/api/account"
-        : "/api/account";
+      const url = "/api/account";
       const method = editingAccount ? "PUT" : "POST";
 
-      const payload = editingAccount ? { ...formData, id: editingAccount.id } : formData;
+      const payload = editingAccount
+        ? { ...formData, id: editingAccount.id }
+        : formData;
 
       const response = await fetch(url, {
         method,
@@ -113,9 +113,29 @@ export default function AccountPage() {
       const data = await response.json();
 
       if (data.success) {
+
+        // DAILY HISAB ENTRY CREATE
+        if (!editingAccount) {
+          await fetch("/api/daily-hisab", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              date: formData.date_time,
+              description: `${formData.name} Account Entry`,
+              type: "INCOME",
+              amount: parseFloat(formData.pending_amount || 0),
+            }),
+          });
+        }
+
         toast.success(
-          editingAccount ? "Account record updated successfully!" : "Account record added successfully!"
+          editingAccount
+            ? "Account record updated successfully!"
+            : "Account record added successfully!"
         );
+
         resetForm();
         fetchAccountRecords();
         setShowForm(false);
