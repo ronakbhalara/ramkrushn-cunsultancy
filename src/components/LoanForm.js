@@ -379,7 +379,7 @@ export default function LoanForm({
           </div>
 
           {/* Document Upload Section */}
-          <div className="border-t pt-4">
+          {/* <div className="border-t pt-4">
             <h3 className="text-lg font-semibold text-[#1c3430] mb-3">
               Documents
             </h3>
@@ -398,10 +398,10 @@ export default function LoanForm({
                 <p className="mt-1 text-xs text-gray-500">
                   Supported formats: PNG, JPG images only (Max 5MB per file)
                 </p>
-              </div>
+              </div> */}
 
               {/* Existing Documents Section for Edit Mode */}
-              {editingLoan && existingDocuments.length > 0 && (
+              {/* {editingLoan && existingDocuments.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-700">Existing Documents ({existingDocuments.length}):</p>
@@ -535,7 +535,7 @@ export default function LoanForm({
                 </div>
               )}
             </div>
-          </div>
+          </div> */}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

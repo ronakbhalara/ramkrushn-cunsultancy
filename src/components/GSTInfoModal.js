@@ -343,7 +343,7 @@ export default function GSTInfoModal({ show, onClose, gstRecord, onSubmit }) {
             />
           </div>
 
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Document Images *
             </label>
@@ -365,10 +365,10 @@ export default function GSTInfoModal({ show, onClose, gstRecord, onSubmit }) {
                 Selected: {formData.images.length} image(s)
               </p>
             )}
-          </div>
+          </div> */}
 
           {/* Image Preview Section */}
-          {formData.images.length > 0 && (
+          {/* {formData.images.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Image Preview
@@ -403,10 +403,10 @@ export default function GSTInfoModal({ show, onClose, gstRecord, onSubmit }) {
                 ))}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Show existing images if any */}
-          {existingData?.image_paths && JSON.parse(existingData.image_paths || '[]').length > 0 && (
+          {/* {existingData?.image_paths && JSON.parse(existingData.image_paths || '[]').length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Existing Images
@@ -447,7 +447,7 @@ export default function GSTInfoModal({ show, onClose, gstRecord, onSubmit }) {
                 ))}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Buttons */}
           <div className="flex gap-3 pt-4">

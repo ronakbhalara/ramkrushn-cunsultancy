@@ -283,7 +283,7 @@ export default function IncomeTaxForm({
           </div>
 
           {/* Document Upload Section */}
-          <div className="border-t pt-4">
+          {/* <div className="border-t pt-4">
             <h3 className="text-lg font-semibold text-[#1c3430] mb-3">
               Documents
             </h3>
@@ -302,10 +302,10 @@ export default function IncomeTaxForm({
                 <p className="mt-1 text-xs text-gray-500">
                   Supported formats: PNG, JPG images only (Max 5MB per file)
                 </p>
-              </div>
+              </div> */}
 
               {/* Existing Documents */}
-              {editingIncomeTax && existingDocuments.length > 0 && (
+              {/* {editingIncomeTax && existingDocuments.length > 0 && (
                 <div className="space-y-4">
                   <p className="text-sm font-medium text-gray-700">Existing Documents ({existingDocuments.length}):</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -330,10 +330,10 @@ export default function IncomeTaxForm({
                     ))}
                   </div>
                 </div>
-              )}
+              )} */}
 
               {/* Selected Files */}
-              {selectedFiles.length > 0 && (
+              {/* {selectedFiles.length > 0 && (
                 <div className="space-y-4">
                   <p className="text-sm font-medium text-gray-700">Selected Files ({selectedFiles.length}):</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -360,7 +360,7 @@ export default function IncomeTaxForm({
                 </div>
               )}
             </div>
-          </div>
+          </div> */}
 
           <div className="flex gap-3 pt-4">
             <button
