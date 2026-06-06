@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import React from "react";
 import { toast } from "react-toastify";
+import * as XLSX from 'xlsx';
 import IncomeTaxForm from "../../../components/IncomeTaxForm";
 import IncomeTaxDocumentsSection from "../../../components/IncomeTaxDocumentsSection";
 
@@ -200,6 +201,54 @@ export default function IncomeTaxPage() {
     setExpandedIncomeTax(expandedIncomeTax === incomeTaxId ? null : incomeTaxId);
   };
 
+  const exportToExcel = () => {
+    try {
+      const filteredData = incomeTaxRecords.filter(
+        record => statusFilter === "ALL" || record.stage === statusFilter
+      );
+
+      if (filteredData.length === 0) {
+        toast.error("No data to export");
+        return;
+      }
+
+      const excelData = filteredData.map((record, index) => ({
+        "NO.": record.number_series,
+        "Name": record.name || "-",
+        "Phone": record.phone_no || "-",
+        "Status": record.status || "-",
+        "Pan No": record.pan_card_no ? record.pan_card_no.toUpperCase() : "-",
+        "Password": record.password || "-",
+        "Reference Name": record.reference_name || "-",
+        "Reference Phone": record.reference_phone || "-",
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Income Tax");
+
+      // Set column widths
+      const columnWidths = [
+        { wch: 8 },  // NO.
+        { wch: 20 }, // Name
+        { wch: 15 }, // Phone
+        { wch: 12 }, // Status
+        { wch: 12 }, // Pan No
+        { wch: 15 }, // Password
+        { wch: 18 }, // Reference Name
+        { wch: 18 }, // Reference Phone
+      ];
+      worksheet["!cols"] = columnWidths;
+
+      const fileName = `Income_Tax_Records_${new Date().toLocaleDateString('en-IN')}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      toast.success("Excel file downloaded successfully");
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toast.error("Failed to export Excel file");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -250,12 +299,20 @@ export default function IncomeTaxPage() {
             Complete
           </button>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-4 py-2 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors"
-        >
-          Add New Income Tax
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={exportToExcel}
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-semibold transition-colors flex items-center gap-2"
+          >
+            📊 Export to Excel
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="px-4 py-2 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors"
+          >
+            Add New Income Tax
+          </button>
+        </div>
       </div>
 
       {/* Form Modal */}
@@ -312,7 +369,7 @@ export default function IncomeTaxPage() {
                   .map((incomeTax) => (
                     <React.Fragment key={incomeTax.id}>
                       <tr
-                        className="hover:bg-gray-50 cursor-pointer"
+                        className={`hover:bg-gray-50 cursor-pointer ${incomeTax.note && expandedIncomeTax !== incomeTax.id ? 'border-b-0' : ''}`}
                         onClick={() => toggleIncomeTaxDetails(incomeTax.id)}
                       >
                         <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
@@ -359,6 +416,17 @@ export default function IncomeTaxPage() {
                           </div>
                         </td>
                       </tr>
+                      {incomeTax.note && (
+                        <tr
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => toggleIncomeTaxDetails(incomeTax.id)}
+                        >
+                          <td colSpan="6" className="px-4 pb-3 pt-0 text-sm">
+                            <span className="font-bold text-gray-900">Note: </span>
+                            <span className="font-semibold text-gray-800 whitespace-pre-wrap">{incomeTax.note}</span>
+                          </td>
+                        </tr>
+                      )}
                       {expandedIncomeTax === incomeTax.id && (
                         <tr className="animate-in slide-in-from-top-1 duration-300">
                           <td colSpan="6" className="px-0 py-0">

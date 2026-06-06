@@ -172,6 +172,25 @@ export default function LoanForm({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone No 2 (Optional)
+              </label>
+              <input
+                type="text"
+                value={formData.phone_no_2 || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone_no_2: e.target.value })
+                }
+                placeholder="+91"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black ${errors.phone_no_2 ? "border-red-500" : "border-gray-300"
+                  }`}
+              />
+              {errors.phone_no_2 && (
+                <p className="mt-1 text-sm text-red-600">{errors.phone_no_2}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Email ID
               </label>
               <input

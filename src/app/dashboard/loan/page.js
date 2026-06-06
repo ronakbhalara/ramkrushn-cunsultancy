@@ -21,6 +21,7 @@ export default function LoanPage() {
   const [formData, setFormData] = useState({
     name: "",
     phone_no: "",
+    phone_no_2: "",
     email_id: "",
     loan_status: "",
     loan_type: "",
@@ -77,6 +78,11 @@ export default function LoanPage() {
       newErrors.phone_no = "Please enter a valid Indian phone number (e.g., +919876543210 or 9876543210)";
     }
 
+    // Phone 2 validation (optional but if provided must be valid)
+    if (formData.phone_no_2 && !phoneRegex.test(formData.phone_no_2)) {
+      newErrors.phone_no_2 = "Please enter a valid Indian phone number (e.g., +919876543210 or 9876543210)";
+    }
+
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (formData.email_id && !emailRegex.test(formData.email_id)) {
@@ -103,6 +109,7 @@ export default function LoanPage() {
       // Add all form fields
       submitFormData.append('name', formData.name);
       submitFormData.append('phone_no', formData.phone_no);
+      submitFormData.append('phone_no_2', formData.phone_no_2 || '');
       submitFormData.append('email_id', formData.email_id);
       submitFormData.append('loan_status', formData.loan_status);
       submitFormData.append('loan_type', formData.loan_type);
@@ -155,6 +162,7 @@ export default function LoanPage() {
     setFormData({
       name: loan.name,
       phone_no: loan.phone_no,
+      phone_no_2: loan.phone_no_2 || "",
       email_id: loan.email_id || "",
       loan_status: loan.loan_status || "",
       loan_type: loan.loan_type || "",
@@ -196,6 +204,7 @@ export default function LoanPage() {
     setFormData({
       name: "",
       phone_no: "",
+      phone_no_2: "",
       email_id: "",
       loan_status: "",
       loan_type: "",
@@ -463,16 +472,19 @@ export default function LoanPage() {
                     Name
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Phone
+                    Phone Numbers
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Stage
+                    Loan Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Loan Type
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Loan Amount
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Bank Name
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Created Date
@@ -571,18 +583,28 @@ export default function LoanPage() {
                               {loan.name}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
-                              {loan.phone_no}
+                              <div className="flex flex-col gap-1">
+                                <a
+                                  href={`tel:${loan.phone_no}`}
+                                  className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {loan.phone_no}
+                                </a>
+                                {loan.phone_no_2 && (
+                                  <a
+                                    href={`tel:${loan.phone_no_2}`}
+                                    className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {loan.phone_no_2}
+                                  </a>
+                                )}
+                              </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={`px-2 py-1 text-xs font-semibold rounded-full ${loan.stage === "ACTIVE"
-                                  ? "bg-green-100 text-green-800"
-                                  : loan.stage === "PENDING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-blue-100 text-blue-800"
-                                  }`}
-                              >
-                                {loan.stage}
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                {loan.loan_status || "-"}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
@@ -590,6 +612,9 @@ export default function LoanPage() {
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               ₹{parseFloat(loan.loan_amount).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-700">
+                              {loan.bank_name || "-"}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               {loan.created_at ? new Date(loan.created_at).toLocaleDateString('en-IN', {
@@ -646,9 +671,27 @@ export default function LoanPage() {
                                           <p className="font-medium text-gray-900">{loan.name}</p>
                                         </div>
                                         <div>
-                                          <p className="text-xs text-gray-500">Phone</p>
-                                          <p className="font-medium text-gray-900">{loan.phone_no}</p>
+                                          <p className="text-xs text-gray-500">Primary Phone</p>
+                                          <a
+                                            href={`tel:${loan.phone_no}`}
+                                            className="font-medium text-[#17312d] hover:text-[#dfc797] hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            {loan.phone_no}
+                                          </a>
                                         </div>
+                                        {loan.phone_no_2 && (
+                                          <div>
+                                            <p className="text-xs text-gray-500">Secondary Phone</p>
+                                            <a
+                                              href={`tel:${loan.phone_no_2}`}
+                                              className="font-medium text-[#17312d] hover:text-[#dfc797] hover:underline"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              {loan.phone_no_2}
+                                            </a>
+                                          </div>
+                                        )}
                                         <div>
                                           <p className="text-xs text-gray-500">Email</p>
                                           <p className="font-medium text-gray-900">{loan.email_id || "-"}</p>

@@ -473,15 +473,6 @@ export default function GSTPage() {
             >
               All
             </button>
-            <button
-              onClick={() => setStatusFilter("BUSINESS")}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "BUSINESS"
-                ? "bg-[#dfc797] text-[#17312d]"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              Business
-            </button>
           </div>
 
           {/* Task Filters */}
@@ -730,20 +721,6 @@ export default function GSTPage() {
                                   >
                                     Delete
                                   </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleInfo(gst);
-                                    }}
-                                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors flex items-center gap-1"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <circle cx="12" cy="12" r="10"></circle>
-                                      <line x1="12" y1="16" x2="12" y2="12"></line>
-                                      <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                    </svg>
-                                    Info
-                                  </button>
                                 </div>
                               )}
                             </td>
@@ -887,14 +864,6 @@ export default function GSTPage() {
           </table>
         </div>
       </div>
-
-      {/* GST Info Modal */}
-      <GSTInfoModal
-        show={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-        gstRecord={selectedGSTForInfo}
-        onSubmit={handleInfoSubmit}
-      />
     </div>
   );
 }

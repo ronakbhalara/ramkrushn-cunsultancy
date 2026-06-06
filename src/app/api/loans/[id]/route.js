@@ -40,6 +40,7 @@ export async function PUT(request, { params }) {
     const loanData = {
       name: formData.get('name') || '',
       phone_no: formData.get('phone_no') || '',
+      phone_no_2: formData.get('phone_no_2') || '',
       email_id: formData.get('email_id') || '',
       loan_status: formData.get('loan_status') || '',
       loan_type: formData.get('loan_type') || '',

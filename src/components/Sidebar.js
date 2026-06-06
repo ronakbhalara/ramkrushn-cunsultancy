@@ -40,12 +40,13 @@ export default function Sidebar({
 
   const menuItems = [
     { name: "Dashboard", href: "/dashboard", icon: "📊" },
-    { name: "Loan", href: "/dashboard/loan", icon: "💰" },
+    { name: "Loan", href: "/dashboard/loan", icon: "💸" },
     { name: "GST", href: "/dashboard/gst", icon: "📋" },
     { name: "Income TAX", href: "/dashboard/income-tax", icon: "🧾" },
     { name: "Account", href: "/dashboard/account", icon: "👤" },
     // { name: "Tasks", href: "/dashboard/tasks", icon: "📅" },
-    { name: "Daily Hisab", href: "/dashboard/daily-hisab", icon: "💸" },
+    { name: "Daily Hisab", href: "/dashboard/daily-hisab", icon: "📈" },
+    { name: "Policy", href: "/dashboard/policy", icon: "🛡️" },
     { name: "Settings", href: "/dashboard/settings", icon: "⚙️" },
   ];
 
