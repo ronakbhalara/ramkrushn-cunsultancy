@@ -17,6 +17,8 @@ export default function LoanPage() {
   const [editingTask, setEditingTask] = useState(null);
   const [expandedLoan, setExpandedLoan] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -227,6 +229,18 @@ export default function LoanPage() {
     setShowForm(false);
   };
 
+  const filteredLoans = loans
+    .filter((loan) => statusFilter === "ALL" || loan.stage === statusFilter)
+    .filter((loan) => {
+      if (!startDate && !endDate) return true;
+      const dateValue = loan.created_at || loan.emi_date || loan.date || "";
+      if (!dateValue) return false;
+      const entryDate = dateValue.split('T')[0];
+      if (startDate && entryDate < startDate) return false;
+      if (endDate && entryDate > endDate) return false;
+      return true;
+    });
+
   const [taskFormData, setTaskFormData] = useState({
     category: "LOAN",
     title: "",
@@ -421,6 +435,40 @@ export default function LoanPage() {
             </button>
           </div>
         </div>
+        {/* Date Filters */}
+        <div className="flex items-center gap-2">
+          <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+            <div className="flex flex-col">
+              {/* <label className="text-[10px] uppercase text-gray-500 mb-1">Start Date</label> */}
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="rounded-md border border-gray-300 bg-white px-2 py-0 h-8 w-36 text-sm text-gray-700"
+              />
+            </div>
+
+            <div className="flex flex-col">
+              {/* <label className="text-[10px] uppercase text-gray-500 mb-1">End Date</label> */}
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="rounded-md border border-gray-300 bg-white px-2 py-0 h-8 w-36 text-sm text-gray-700"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => { setStartDate(""); setEndDate(""); }}
+                className="ml-1 px-3 py-1 rounded-md bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 text-xs font-semibold"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
         <button
           onClick={() => statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? setShowTaskForm(true) : setShowForm(true)}
           className="px-4 py-2 sm:mt-0 mt-5 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors"
@@ -556,18 +604,17 @@ export default function LoanPage() {
                   })
                 )
               ) : (
-                loans.filter(loan => statusFilter === "ALL" || loan.stage === statusFilter).length === 0 ? (
+                filteredLoans.length === 0 ? (
                   <tr>
                     <td
                       colSpan="9"
                       className="px-4 py-8 text-center text-gray-500"
                     >
-                      No {statusFilter === "ALL" ? "" : statusFilter.toLowerCase()} loans found. Click "Add New Loan" to get started.
+                      No loans found for the selected filters. Click "Add New Loan" to get started.
                     </td>
                   </tr>
                 ) : (
-                  loans
-                    .filter(loan => statusFilter === "ALL" || loan.stage === statusFilter)
+                  filteredLoans
                     .map((loan, index) => {
                       const rowBgClass = index % 2 === 0 ? 'bg-gray-100' : 'bg-white hover:bg-gray-50';
                       return (
