@@ -9,7 +9,9 @@ export default function DailyHisabPage() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const today = new Date().toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
 
   useEffect(() => {
     fetchEntries();
@@ -72,9 +74,11 @@ export default function DailyHisabPage() {
     }
   };
 
-  const filteredEntries = entries.filter(
-    (e) => e.date === filterDate
-  );
+  const filteredEntries = entries.filter((e) => {
+    const entryDate = (e.date || e.entry_date || e.created_at || '').split('T')[0];
+    if (!entryDate) return false;
+    return (!startDate || entryDate >= startDate) && (!endDate || entryDate <= endDate);
+  });
 
   // Calculate Totals based on filtered entries
   const totalIncome = filteredEntries
@@ -96,7 +100,7 @@ export default function DailyHisabPage() {
     }));
 
     if (dataToExport.length === 0) {
-      toast.warning("No records to export for this date!");
+      toast.warning("No records to export for this date range!");
       return;
     }
 
@@ -109,7 +113,7 @@ export default function DailyHisabPage() {
     const colWidths = maxWidths[0].map((_, i) => Math.max(...maxWidths.map(row => row[i])));
     worksheet['!cols'] = colWidths.map(w => ({ wch: w + 2 }));
 
-    XLSX.writeFile(workbook, `Daily_Hisab_${filterDate}.xlsx`);
+    XLSX.writeFile(workbook, `Daily_Hisab_${startDate}_to_${endDate}.xlsx`);
   };
 
   if (loading) {
@@ -123,14 +127,26 @@ export default function DailyHisabPage() {
   return (
     <div className="w-full">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        {/* Date Filter Card */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+        {/* Date Range Filter Card */}
         <div className="bg-white p-3 rounded-xl shadow-sm border-b-2 border-blue-500">
-          <p className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Select Date</p>
+          <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Start Date</p>
+          <div>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="text-lg font-black text-[#17312d] focus:outline-none cursor-pointer w-full bg-transparent"
+            />
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl shadow-sm border-b-2 border-blue-500">
+          <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">End Date</p>
           <input
             type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
             className="text-lg font-black text-[#17312d] focus:outline-none cursor-pointer w-full bg-transparent"
           />
         </div>
@@ -187,8 +203,11 @@ export default function DailyHisabPage() {
               </div>
             ) : (
               filteredEntries.filter(e => e.type === "INCOME").map((entry) => (
-                <div key={entry.id} className="group bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-3 flex items-center justify-between border-l-4 border-green-500 border-r border-t border-b border-gray-100">
-                  <h4 className="font-bold text-gray-900 text-sm truncate pr-2">{entry.description}</h4>
+                <div key={entry.id} className="group bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-3 flex items-center justify-between border border-gray-100 border-l-4 border-l-green-500">
+                  <div className="flex-1 pr-2">
+                    <h4 className="font-bold text-gray-900 text-sm truncate">{entry.description}</h4>
+                    <p className="text-[11px] text-gray-500 mt-1">{entry.date ? new Date(entry.date).toLocaleDateString('en-IN') : '-'}</p>
+                  </div>
                   <div className="flex items-center gap-3">
                     <p className="text-md font-black text-green-600 whitespace-nowrap">
                       + ₹{parseFloat(entry.amount).toLocaleString('en-IN')}
@@ -216,8 +235,11 @@ export default function DailyHisabPage() {
               </div>
             ) : (
               filteredEntries.filter(e => e.type === "EXPENSE").map((entry) => (
-                <div key={entry.id} className="group bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-3 flex items-center justify-between border-l-4 border-red-500 border-r border-t border-b border-gray-100">
-                  <h4 className="font-bold text-gray-900 text-sm truncate pr-2">{entry.description}</h4>
+                <div key={entry.id} className="group bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-3 flex items-center justify-between border border-gray-100 border-l-4 border-l-red-500">
+                  <div className="flex-1 pr-2">
+                    <h4 className="font-bold text-gray-900 text-sm truncate">{entry.description}</h4>
+                    <p className="text-[11px] text-gray-500 mt-1">{entry.date ? new Date(entry.date).toLocaleDateString('en-IN') : '-'}</p>
+                  </div>
                   <div className="flex items-center gap-3">
                     <p className="text-md font-black text-red-600 whitespace-nowrap">
                       - ₹{parseFloat(entry.amount).toLocaleString('en-IN')}

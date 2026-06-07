@@ -10,6 +10,7 @@ export default function HisabForm({
     type: "EXPENSE",
     amount: "",
     description: "",
+    date: new Date().toISOString().split('T')[0],
   });
 
   const handleSubmit = (e) => {
@@ -30,8 +31,8 @@ export default function HisabForm({
               type="button"
               onClick={() => setFormData({ ...formData, type: "EXPENSE" })}
               className={`flex-1 py-2 rounded-md font-bold transition-all ${formData.type === "EXPENSE"
-                  ? "bg-red-500 text-white shadow-md"
-                  : "text-gray-600 hover:bg-gray-200"
+                ? "bg-red-500 text-white shadow-md"
+                : "text-gray-600 hover:bg-gray-200"
                 }`}
             >
               Expense
@@ -40,12 +41,27 @@ export default function HisabForm({
               type="button"
               onClick={() => setFormData({ ...formData, type: "INCOME" })}
               className={`flex-1 py-2 rounded-md font-bold transition-all ${formData.type === "INCOME"
-                  ? "bg-green-500 text-white shadow-md"
-                  : "text-gray-600 hover:bg-gray-200"
+                ? "bg-green-500 text-white shadow-md"
+                : "text-gray-600 hover:bg-gray-200"
                 }`}
             >
               Income
             </button>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date *
+            </label>
+            <input
+              type="date"
+              required
+              value={formData.date}
+              onChange={(e) =>
+                setFormData({ ...formData, date: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+            />
           </div>
 
           <div>

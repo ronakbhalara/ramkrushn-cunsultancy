@@ -7,12 +7,17 @@ export async function GET() {
   try {
     const q = query(collection(db, 'daily_hisab'), orderBy('created_at', 'desc'));
     const snapshot = await getDocs(q);
-    const data = snapshot.docs.map(doc => ({ 
-       id: doc.id, 
-       ...doc.data(),
-       entry_date: doc.data().created_at ? doc.data().created_at.split('T')[0] : null
-    }));
-    
+    const data = snapshot.docs.map(doc => {
+      const docData = doc.data();
+      const storedDate = docData.date || (docData.created_at ? docData.created_at.split('T')[0] : null);
+      return {
+        id: doc.id,
+        ...docData,
+        date: storedDate,
+        entry_date: storedDate,
+      };
+    });
+
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching hisab entries:', error);
@@ -39,7 +44,7 @@ export async function POST(request) {
       date: date || currentDate,
       created_at: new Date().toISOString()
     };
-    
+
     await setDoc(newRecordRef, newRecord);
 
     return NextResponse.json({
