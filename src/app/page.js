@@ -79,7 +79,7 @@ export default function LandingPage() {
       title: "Personal Loan",
       description:
         "Instant personal loan assistance with minimal documentation.",
-      icon: "💳",
+      icon: "🪙",
     },
     {
       title: "Car Loan",
@@ -109,7 +109,7 @@ export default function LandingPage() {
       title: "Income Tax Return",
       description:
         "Fast and accurate ITR filing services for individuals & companies.",
-      icon: "💰",
+      icon: "📝",
     },
     {
       title: "Accounting Services",
@@ -122,12 +122,6 @@ export default function LandingPage() {
       description:
         "Financial solutions for startups and industrial projects.",
       icon: "🏗️",
-    },
-    {
-      title: "Insurance Services",
-      description:
-        "Life, health, vehicle, and business insurance consultancy.",
-      icon: "🛡️",
     },
     {
       title: "Company Registration",
@@ -473,7 +467,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
             {[
-              ["500+", "Happy Clients"],
+              ["10,000+", "Happy Clients"],
               ["10+", "Years Experience"],
               ["100%", "Client Satisfaction"],
               ["24/7", "Support"],
@@ -610,6 +604,8 @@ export default function LandingPage() {
               <ul className="space-y-4 text-gray-400">
                 <li>Home Loan</li>
                 <li>Business Loan</li>
+                <li>Personal Loan</li>
+                <li>Education Loan</li>
                 <li>GST Services</li>
                 <li>Income Tax Return</li>
                 <li>Accounting</li>
@@ -623,13 +619,63 @@ export default function LandingPage() {
                 Contact Us
               </h3>
 
-              <ul className="space-y-5 text-gray-400">
-                <li>📍 338, Tulsi Arcade, Near Sudama Chow, Mota varaccha, Surat, Gujrat, India-394101</li>
+              <ul className="space-y-4 text-gray-400">
+                <li>
+                  <a href="https://maps.app.goo.gl/YAMpRWRKqxqpzK678" target="_blank" rel="noreferrer" className="hover:text-white transition">
+                    📍 338, Tulsi Arcade, Near Sudama Chow, Mota varaccha, Surat, Gujrat, India-394101
+                  </a>
+                </li>
 
                 <li>📞 +91 83207 04550</li>
 
-                <li>📧 ramkrishnaconsultancy28@gmail.com</li>
+                <li>📧 info.ramkrushnaconsultancy@gmail.com</li>
               </ul>
+
+              {/* Social Media Icons */}
+              <div className="mt-6 flex gap-3">
+                <a
+                  href="https://www.instagram.com/ramkrishnaconsultantcy?igsh=MWF4OW9wMTB3cmIxbQ=="
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#E4405F] text-white hover:bg-[#d63447] transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl"
+                  title="Follow us on Instagram"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                    <circle cx="17.5" cy="6.5" r="1.5" />
+                  </svg>
+                </a>
+
+                <a
+                  href="https://www.facebook.com/share/1CP7pv92nu/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1877F2] text-white hover:bg-[#166fe5] transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl"
+                  title="Follow us on Facebook"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="white" />
+                  </svg>
+                </a>
+
+                <a
+                  href="https://wa.me/918320704550"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366] text-white hover:bg-[#20ba5c] transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl"
+                  title="Message us on WhatsApp"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="h-5 w-5"
+                  >
+                    <path d="M20.52 3.48A11.88 11.88 0 0012 0C5.37 0 .05 5.32.05 11.95c0 2.1.54 4.16 1.57 5.97L0 24l6.3-1.65A11.91 11.91 0 0012 23.9h.02c6.63 0 11.95-5.32 11.95-11.95a11.82 11.82 0 00-3.45-8.47zm-8.39 17.01h-.01a9.7 9.7 0 01-4.92-1.34l-.35-.2-3.74.98 1-3.66-.23-.37A9.67 9.67 0 012.3 11.93 9.71 9.71 0 0111.95 2.25c5.37 0 9.7 4.34 9.7 9.7 0 5.36-4.34 9.7-9.7 9.7zm5.31-6.3c-.29-.14-1.71-.84-1.98-.94-.26-.1-.45-.14-.64.14-.2.29-.77.94-.94 1.13-.17.2-.33.23-.62.08-.29-.14-1.22-.45-2.33-1.46-.86-.76-1.44-1.7-1.61-1.99-.17-.29-.02-.45.12-.59.12-.11.29-.29.43-.43.14-.14.19-.24.29-.4.1-.16.04-.3-.02-.43-.06-.14-.64-1.55-.88-2.14-.23-.56-.47-.48-.64-.49-.17 0-.37-.01-.57-.01-.2 0-.42.03-.64.3-.22.26-.84.82-.84 2 .01 1.18.86 2.33.98 2.5.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.15 1.53.09.47-.07 1.71-.7 1.95-1.37.24-.66.24-1.23.17-1.35-.07-.13-.27-.2-.56-.34z" />
+                  </svg>
+                </a>
+              </div>
             </div>
           </div>
 
