@@ -15,6 +15,7 @@ export default function IncomeTaxPage() {
   const [selectedIncomeTax, setSelectedIncomeTax] = useState(null);
   const [expandedIncomeTax, setExpandedIncomeTax] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -299,6 +300,16 @@ export default function IncomeTaxPage() {
             Complete
           </button>
         </div>
+        {/* Search Bar */}
+        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center">
+          <input
+            type="text"
+            placeholder="Search by No., Name, or Phone..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 h-8 w-72 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#dfc797]"
+          />
+        </div>
         <div className="flex gap-2">
           <button
             onClick={exportToExcel}
@@ -354,7 +365,15 @@ export default function IncomeTaxPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {incomeTaxRecords.filter(record => statusFilter === "ALL" || record.stage === statusFilter).length === 0 ? (
+              {incomeTaxRecords.filter(record => {
+                if (statusFilter !== "ALL" && record.stage !== statusFilter) return false;
+                if (!searchQuery.trim()) return true;
+                const query = searchQuery.toLowerCase().trim();
+                if (record.number_series && record.number_series.toString().toLowerCase().includes(query)) return true;
+                if (record.name && record.name.toLowerCase().includes(query)) return true;
+                if (record.phone_no && record.phone_no.toLowerCase().includes(query)) return true;
+                return false;
+              }).length === 0 ? (
                 <tr>
                   <td
                     colSpan="6"
@@ -365,7 +384,15 @@ export default function IncomeTaxPage() {
                 </tr>
               ) : (
                 incomeTaxRecords
-                  .filter(record => statusFilter === "ALL" || record.stage === statusFilter)
+                  .filter(record => {
+                    if (statusFilter !== "ALL" && record.stage !== statusFilter) return false;
+                    if (!searchQuery.trim()) return true;
+                    const query = searchQuery.toLowerCase().trim();
+                    if (record.number_series && record.number_series.toString().toLowerCase().includes(query)) return true;
+                    if (record.name && record.name.toLowerCase().includes(query)) return true;
+                    if (record.phone_no && record.phone_no.toLowerCase().includes(query)) return true;
+                    return false;
+                  })
                   .map((incomeTax) => (
                     <React.Fragment key={incomeTax.id}>
                       <tr

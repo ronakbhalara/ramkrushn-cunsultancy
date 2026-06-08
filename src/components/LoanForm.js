@@ -49,16 +49,16 @@ export default function LoanForm({
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     const validFiles = [];
-    
+
     files.forEach(file => {
       // Check file type (only PNG and JPG allowed)
       const isImage = file.type.startsWith('image/');
       const isValidType = file.type === 'image/png' || file.type === 'image/jpeg' || file.type === 'image/jpg';
-      
+
       // Check file size (5MB max)
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       const isValidSize = file.size <= maxSize;
-      
+
       if (isImage && isValidType && isValidSize) {
         validFiles.push(file);
       } else {
@@ -70,7 +70,7 @@ export default function LoanForm({
         }
       }
     });
-    
+
     if (validFiles.length > 0) {
       setSelectedFiles(prev => [...prev, ...validFiles]);
     }
@@ -221,6 +221,7 @@ export default function LoanForm({
               >
                 <option value="ACTIVE">Active</option>
                 <option value="COMPLETE">Complete</option>
+                <option value="CLOSE">Close</option>
               </select>
             </div>
 
@@ -419,8 +420,8 @@ export default function LoanForm({
                 </p>
               </div> */}
 
-              {/* Existing Documents Section for Edit Mode */}
-              {/* {editingLoan && existingDocuments.length > 0 && (
+          {/* Existing Documents Section for Edit Mode */}
+          {/* {editingLoan && existingDocuments.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-700">Existing Documents ({existingDocuments.length}):</p>

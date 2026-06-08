@@ -19,6 +19,7 @@ export default function LoanPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -239,6 +240,33 @@ export default function LoanPage() {
       if (startDate && entryDate < startDate) return false;
       if (endDate && entryDate > endDate) return false;
       return true;
+    })
+    .filter((loan) => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase().trim();
+
+      // Search in No. (number_series)
+      if (loan.number_series && loan.number_series.toString().toLowerCase().includes(query)) return true;
+
+      // Search in Name
+      if (loan.name && loan.name.toLowerCase().includes(query)) return true;
+
+      // Search in Phone Numbers (both phone_no and phone_no_2)
+      if (loan.phone_no && loan.phone_no.toLowerCase().includes(query)) return true;
+      if (loan.phone_no_2 && loan.phone_no_2.toLowerCase().includes(query)) return true;
+
+      if (
+        loan.loan_status &&
+        loan.loan_status.toLowerCase().includes(query)
+      )
+        return true;
+      if (
+        loan.loan_type &&
+        loan.loan_type.toLowerCase().includes(query)
+      )
+        return true;
+
+      return false;
     });
 
   const [taskFormData, setTaskFormData] = useState({
@@ -411,10 +439,19 @@ export default function LoanPage() {
             >
               Complete
             </button>
+            <button
+              onClick={() => setStatusFilter("CLOSE")}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "CLOSE"
+                ? "bg-[#dfc797] text-[#17312d]"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+            >
+              Close
+            </button>
           </div>
 
           {/* Task Filters */}
-          <div className="flex gap-2 bg-gray-100 p-1.5 rounded-xl border border-gray-200 shadow-sm">
+          {/* <div className="flex gap-2 bg-gray-100 p-1.5 rounded-xl border border-gray-200 shadow-sm">
             <button
               onClick={() => setStatusFilter("TASK")}
               className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "TASK"
@@ -433,11 +470,22 @@ export default function LoanPage() {
             >
               Complete Task
             </button>
-          </div>
+          </div> */}
         </div>
         {/* Date Filters */}
         <div className="flex items-center gap-2">
           <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+            {/* Search Input */}
+            <div className="flex flex-col">
+              <input
+                type="text"
+                placeholder="Search by No., Name, or Phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 h-8 w-72 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#dfc797]"
+              />
+            </div>
+
             <div className="flex flex-col">
               {/* <label className="text-[10px] uppercase text-gray-500 mb-1">Start Date</label> */}
               <input
@@ -461,7 +509,7 @@ export default function LoanPage() {
             <div className="flex items-end">
               <button
                 type="button"
-                onClick={() => { setStartDate(""); setEndDate(""); }}
+                onClick={() => { setStartDate(""); setEndDate(""); setSearchQuery(""); }}
                 className="ml-1 px-3 py-1 rounded-md bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 text-xs font-semibold"
               >
                 Reset
@@ -533,9 +581,6 @@ export default function LoanPage() {
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Bank Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Created Date
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Actions
@@ -626,8 +671,10 @@ export default function LoanPage() {
                             <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
                               {loan.number_series}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
-                              {loan.name}
+                            <td className="px-4 py-3 text-sm font-bold text-gray-700">
+                              {loan.name
+                                ?.toLowerCase()
+                                .replace(/\b\w/g, (char) => char.toUpperCase())}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               <div className="flex flex-col gap-1">
@@ -654,21 +701,16 @@ export default function LoanPage() {
                                 {loan.loan_status || "-"}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
+                            <td className="px-4 py-3 text-xs text-gray-700">
                               {loan.loan_type || "-"}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               ₹{parseFloat(loan.loan_amount).toLocaleString()}
                             </td>
-                            <td className="px-4 py-3 text-xs text-gray-700">
-                              {loan.bank_name || "-"}
-                            </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
-                              {loan.created_at ? new Date(loan.created_at).toLocaleDateString('en-IN', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              }) : "-"}
+                              {loan.bank_name
+                                ?.toLowerCase()
+                                .replace(/\b\w/g, (char) => char.toUpperCase())}
                             </td>
                             <td className="px-4 py-3 text-sm">
                               <div className="flex gap-2">
@@ -698,7 +740,7 @@ export default function LoanPage() {
                               className={`cursor-pointer transition-colors ${rowBgClass}`}
                               onClick={() => toggleLoanDetails(loan.id)}
                             >
-                              <td colSpan="7" className="px-4 pb-3 pt-0 text-sm">
+                              <td colSpan="7" className="px-4 pb-3 pt-0 text-xs">
                                 <span className="font-bold text-gray-900">Note: </span>
                                 <span className="font-semibold text-gray-800">{loan.notes}</span>
                               </td>
@@ -742,6 +784,16 @@ export default function LoanPage() {
                                         <div>
                                           <p className="text-xs text-gray-500">Email</p>
                                           <p className="font-medium text-gray-900">{loan.email_id || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">Created Date</p>
+                                          <p className="font-medium text-gray-900">
+                                            {loan.created_at ? new Date(loan.created_at).toLocaleDateString('en-IN', {
+                                              day: '2-digit',
+                                              month: '2-digit',
+                                              year: 'numeric'
+                                            }) : "-"}
+                                          </p>
                                         </div>
                                       </div>
                                     </div>

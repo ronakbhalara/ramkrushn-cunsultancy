@@ -13,6 +13,7 @@ export default function AccountPage() {
   const [editingAccount, setEditingAccount] = useState(null);
   const [expandedAccount, setExpandedAccount] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
   const [paymentHistory, setPaymentHistory] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
@@ -26,6 +27,7 @@ export default function AccountPage() {
   const [editingPaymentId, setEditingPaymentId] = useState(null);
 
   const [formData, setFormData] = useState({
+    number_series: "",
     name: "",
     phone_no: "",
     status: "RECEIPT",
@@ -160,6 +162,7 @@ export default function AccountPage() {
 
     setEditingAccount(account);
     setFormData({
+      number_series: account.number_series || "",
       name: account.name,
       phone_no: account.phone_no,
       status: account.status,
@@ -196,6 +199,7 @@ export default function AccountPage() {
 
   const resetForm = () => {
     setFormData({
+      number_series: "",
       name: "",
       phone_no: "",
       status: "RECEIPT",
@@ -337,7 +341,15 @@ export default function AccountPage() {
 
   const exportToExcel = () => {
     const dataToExport = accountRecords
-      .filter(account => statusFilter === "ALL" || account.status === statusFilter)
+      .filter(account => {
+        if (statusFilter !== "ALL" && account.status !== statusFilter) return false;
+        if (!searchQuery.trim()) return true;
+        const query = searchQuery.toLowerCase().trim();
+        if (account.number_series && account.number_series.toString().toLowerCase().includes(query)) return true;
+        if (account.name && account.name.toLowerCase().includes(query)) return true;
+        if (account.phone_no && account.phone_no.toLowerCase().includes(query)) return true;
+        return false;
+      })
       .map(account => ({
         "Series Number": account.number_series || "-",
         "Name": account.name || "-",
@@ -408,6 +420,16 @@ export default function AccountPage() {
           >
             Complete
           </button>
+          {/* Search Bar */}
+          <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center ml-4">
+            <input
+              type="text"
+              placeholder="Search by No., Name, or Phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 h-8 w-72 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#dfc797]"
+            />
+          </div>
           <button
             onClick={exportToExcel}
             className="px-4 py-2 ml-2 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
@@ -465,7 +487,15 @@ export default function AccountPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {accountRecords.filter(account => statusFilter === "ALL" || account.status === statusFilter).length === 0 ? (
+              {accountRecords.filter(account => {
+                if (statusFilter !== "ALL" && account.status !== statusFilter) return false;
+                if (!searchQuery.trim()) return true;
+                const query = searchQuery.toLowerCase().trim();
+                if (account.number_series && account.number_series.toString().toLowerCase().includes(query)) return true;
+                if (account.name && account.name.toLowerCase().includes(query)) return true;
+                if (account.phone_no && account.phone_no.toLowerCase().includes(query)) return true;
+                return false;
+              }).length === 0 ? (
                 <tr>
                   <td
                     colSpan="7"
@@ -476,7 +506,15 @@ export default function AccountPage() {
                 </tr>
               ) : (
                 accountRecords
-                  .filter(account => statusFilter === "ALL" || account.status === statusFilter)
+                  .filter(account => {
+                    if (statusFilter !== "ALL" && account.status !== statusFilter) return false;
+                    if (!searchQuery.trim()) return true;
+                    const query = searchQuery.toLowerCase().trim();
+                    if (account.number_series && account.number_series.toString().toLowerCase().includes(query)) return true;
+                    if (account.name && account.name.toLowerCase().includes(query)) return true;
+                    if (account.phone_no && account.phone_no.toLowerCase().includes(query)) return true;
+                    return false;
+                  })
                   .map((account) => (
                     <React.Fragment key={account.id}>
                       <tr

@@ -41,6 +41,7 @@ export default function AccountForm({
       if (data.success) {
         setFormData({
           ...formData,
+          number_series: seriesNumber.trim().toUpperCase(),
           name: data.data.name || "",
           phone_no: data.data.phone_no || "",
           reference_name: data.data.reference_name || "",

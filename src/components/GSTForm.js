@@ -16,7 +16,8 @@ export default function GSTForm({
     onSubmit();
   };
 
-  const subjectOptions = ['PROPERTY', 'PARTNERSHIP', 'BUSINESS', 'PROFESSIONAL', 'OTHER'];
+  const subjectOptions =
+    ['PROPRIETOR', 'PARTNERSHIP', 'INDIVIDUAL', 'COMPANY', 'LLP', 'PRIVATE LIMITED'];
   const getCurrentYear = new Date().getFullYear();
   const assessmentYearOptions = [];
   const currentAssessmentYear = `${getCurrentYear}-${((getCurrentYear + 1) % 100).toString().padStart(2, '0')}`;
@@ -108,6 +109,19 @@ export default function GSTForm({
                   }`}
               />
               {errors.reference_phone && <p className="text-red-500 text-xs mt-1">{errors.reference_phone}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Company Name
+              </label>
+              <input
+                type="text"
+                value={formData.company_name}
+                onChange={handleChange}
+                name="company_name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+              />
             </div>
 
             <div>
@@ -236,7 +250,22 @@ export default function GSTForm({
               </select>
             </div>
 
+            {/* Note Field */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Note
+              </label>
+              <textarea
+                name="note"
+                value={formData.note || ""}
+                onChange={handleChange}
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black resize-none"
+                placeholder="Add any additional information..."
+              />
+            </div>
           </div>
+
           <div className="flex gap-3 pt-4">
             <button
               type="submit"

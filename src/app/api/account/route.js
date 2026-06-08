@@ -8,7 +8,7 @@ export async function GET() {
     const q = query(collection(db, 'accounts'), orderBy('created_at', 'desc'));
     const snapshot = await getDocs(q);
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
+
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching Account records:', error);
@@ -24,27 +24,27 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const {
-      name, phone_no, status, date_time, payment_type,
+      number_series, name, phone_no, status, date_time, payment_type,
       pending_amount, complete_amount, reference_name, reference_phone, payment_note
     } = body;
 
-    // Generate number series
-    const snapshot = await getDocs(collection(db, 'accounts'));
-    let maxNum = 0;
-    snapshot.forEach(docSnap => {
-      const ns = docSnap.data().number_series;
-      if (ns) {
-        const num = parseInt(ns, 10);
-        if (num > maxNum) maxNum = num;
-      }
-    });
-    const number_series = String(maxNum + 1).padStart(3, '0');
-    
+    // // Generate number series
+    // const snapshot = await getDocs(collection(db, 'accounts'));
+    // let maxNum = 0;
+    // snapshot.forEach(docSnap => {
+    //   const ns = docSnap.data().number_series;
+    //   if (ns) {
+    //     const num = parseInt(ns, 10);
+    //     if (num > maxNum) maxNum = num;
+    //   }
+    // });
+    // const number_series = String(maxNum + 1).padStart(3, '0');
+
     const finalStatus = (parseFloat(pending_amount) >= parseFloat(complete_amount) && parseFloat(complete_amount) > 0) ? 'COMPLETE' : status;
 
     const newAccountRef = doc(collection(db, 'accounts'));
     const newAccount = {
-      number_series,
+      number_series: number_series || "",
       name: name || '',
       phone_no: phone_no || '',
       status: finalStatus || '',
@@ -55,7 +55,7 @@ export async function POST(request) {
       reference_phone: reference_phone || '',
       created_at: new Date().toISOString()
     };
-    
+
     await setDoc(newAccountRef, newAccount);
     newAccount.id = newAccountRef.id;
 
@@ -87,7 +87,7 @@ export async function PUT(request) {
   try {
     const body = await request.json();
     const {
-      id, name, phone_no, status, date_time, payment_type,
+      id, number_series, name, phone_no, status, date_time, payment_type,
       pending_amount, complete_amount, reference_name, reference_phone
     } = body;
 
@@ -96,6 +96,7 @@ export async function PUT(request) {
     }
 
     const updateData = {
+      number_series: number_series || "",
       name: name || '',
       phone_no: phone_no || '',
       status: status || '',

@@ -16,6 +16,7 @@ export default function GSTPage() {
   const [expandedGST, setExpandedGST] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedGSTForInfo, setSelectedGSTForInfo] = useState(null);
 
   const [tasks, setTasks] = useState([]);
@@ -34,6 +35,7 @@ export default function GSTPage() {
     phone_no: "",
     reference_name: "",
     reference_phone: "",
+    company_name: "",
     pan_card_no: "",
     subject: "",
     gst_no: "",
@@ -42,6 +44,7 @@ export default function GSTPage() {
     assessment_year: [],
     gst_filing_date: "",
     gst_filing_frequency: "",
+    note: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -159,6 +162,7 @@ export default function GSTPage() {
       phone_no: gst.phone_no,
       reference_name: gst.reference_name || "",
       reference_phone: gst.reference_phone || "",
+      company_name: gst.company_name || "",
       pan_card_no: gst.pan_card_no || "",
       subject: gst.subject || "",
       gst_no: gst.gst_no || "",
@@ -169,6 +173,7 @@ export default function GSTPage() {
         : [],
       gst_filing_date: gst.gst_filing_date || "",
       gst_filing_frequency: gst.gst_filing_frequency || "",
+      note: gst.note || "",
     });
     setShowForm(true);
   };
@@ -200,6 +205,7 @@ export default function GSTPage() {
       phone_no: "",
       reference_name: "",
       reference_phone: "",
+      company_name: "",
       pan_card_no: "",
       subject: "",
       gst_no: "",
@@ -208,6 +214,7 @@ export default function GSTPage() {
       assessment_year: [],
       gst_filing_date: "",
       gst_filing_frequency: "",
+      note: "",
     });
     setErrors({});
     setEditingGST(null);
@@ -442,7 +449,23 @@ export default function GSTPage() {
   };
 
   const filteredGSTRecords = gstRecords.filter(gst => {
-    if (statusFilter === "ALL") return true;
+    if (statusFilter === "ALL" || (statusFilter !== "TASK" && statusFilter !== "COMPLETED_TASK")) {
+      // First filter by status
+      if (statusFilter !== "ALL" && statusFilter !== "TASK" && statusFilter !== "COMPLETED_TASK") {
+        if (gst.subject !== statusFilter) return false;
+      }
+
+      // Then filter by search query
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase().trim();
+
+      if (gst.number_series && gst.number_series.toString().toLowerCase().includes(query)) return true;
+      if (gst.name && gst.name.toLowerCase().includes(query)) return true;
+      if (gst.phone_no && gst.phone_no.toLowerCase().includes(query)) return true;
+      if (gst.phone_no_2 && gst.phone_no_2.toLowerCase().includes(query)) return true;
+
+      return false;
+    }
     if (statusFilter === "TASK" || statusFilter === "COMPLETED_TASK") {
       return false;
     }
@@ -495,6 +518,17 @@ export default function GSTPage() {
             >
               Complete Task
             </button>
+          </div>
+
+          {/* Search Bar */}
+          <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center">
+            <input
+              type="text"
+              placeholder="Search by No., Name, or Phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 h-8 w-72 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#dfc797]"
+            />
           </div>
         </div>
         <button
@@ -551,13 +585,13 @@ export default function GSTPage() {
                     Phone
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Subject
+                    Company Name
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    GST No
+                    User ID
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    PAN No
+                    Password
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Actions
@@ -613,11 +647,11 @@ export default function GSTPage() {
                             </div>
                           </td>
                         </tr>
-                        {task.description && (
+                        {task.note && (
                           <tr className={`transition-colors ${rowBgClass}`}>
                             <td colSpan="4" className="px-4 pb-3 pt-0 text-sm">
                               <span className="font-bold text-gray-900">Note: </span>
-                              <span className="font-semibold text-gray-800 whitespace-pre-wrap">{task.description}</span>
+                              <span className="font-semibold text-gray-800 whitespace-pre-wrap">{task.note}</span>
                             </td>
                           </tr>
                         )}
@@ -657,25 +691,14 @@ export default function GSTPage() {
                             <td className="px-4 py-3 text-sm text-gray-700">
                               {gst.phone_no}
                             </td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={`px-2 py-1 text-xs font-semibold rounded-full ${gst.subject === "PROPERTY"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : gst.subject === "PARTNERSHIP"
-                                    ? "bg-green-100 text-green-800"
-                                    : gst.subject === "BUSINESS"
-                                      ? "bg-purple-100 text-purple-800"
-                                      : "bg-gray-100 text-gray-800"
-                                  }`}
-                              >
-                                {gst.subject || "N/A"}
-                              </span>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {gst.company_name || "-"  }
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
-                              {gst.gst_no || "-"}
+                              {gst.user_id || "-"}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
-                              {gst.pan_card_no ? gst.pan_card_no.toUpperCase() : "-"}
+                              {gst.password || "-"}
                             </td>
                             <td className="px-4 py-3 text-sm">
                               {statusFilter === "TASK" ? (
@@ -725,6 +748,14 @@ export default function GSTPage() {
                               )}
                             </td>
                           </tr>
+                          {gst.note && (
+                            <tr className={`transition-colors ${rowBgClass}`}>
+                              <td colSpan="4" className="px-4 py-2 text-sm">
+                                <span className="font-bold text-gray-900">Note: </span>
+                                <span className="font-semibold text-gray-800 whitespace-pre-wrap">{gst.note}</span>
+                              </td>
+                            </tr>
+                          )}
                           {hasTags && (
                             <tr
                               className={`cursor-pointer transition-colors ${rowBgClass}`}
@@ -773,6 +804,10 @@ export default function GSTPage() {
                                         <div>
                                           <p className="text-xs text-gray-500">Password</p>
                                           <p className="font-medium text-gray-900">{gst.password || "-"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">Company Name</p>
+                                          <p className="font-medium text-gray-900">{gst.company_name || "-"}</p>
                                         </div>
                                       </div>
                                     </div>
@@ -854,6 +889,7 @@ export default function GSTPage() {
                               </td>
                             </tr>
                           )}
+
                         </React.Fragment>
                       );
                     }
