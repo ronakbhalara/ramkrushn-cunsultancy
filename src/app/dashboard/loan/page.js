@@ -16,7 +16,7 @@ export default function LoanPage() {
   const [editingLoan, setEditingLoan] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [expandedLoan, setExpandedLoan] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -412,15 +412,6 @@ export default function LoanPage() {
         <div className="flex flex-wrap gap-4 items-center">
           {/* Loan Filters */}
           <div className="flex gap-2">
-            <button
-              onClick={() => setStatusFilter("ALL")}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "ALL"
-                ? "bg-[#dfc797] text-[#17312d]"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              All
-            </button>
             <button
               onClick={() => setStatusFilter("ACTIVE")}
               className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "ACTIVE"

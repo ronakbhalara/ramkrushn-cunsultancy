@@ -33,6 +33,7 @@ export default function GSTPage() {
   const [formData, setFormData] = useState({
     name: "",
     phone_no: "",
+    email_id: "",
     reference_name: "",
     reference_phone: "",
     company_name: "",
@@ -168,6 +169,7 @@ export default function GSTPage() {
       gst_no: gst.gst_no || "",
       user_id: gst.user_id || "",
       password: gst.password || "",
+      email_id: gst.email_id || "",
       assessment_year: Array.isArray(gst.assessment_year)
         ? gst.assessment_year
         : [],
@@ -203,6 +205,7 @@ export default function GSTPage() {
     setFormData({
       name: "",
       phone_no: "",
+      email_id: "",
       reference_name: "",
       reference_phone: "",
       company_name: "",
@@ -672,10 +675,17 @@ export default function GSTPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredGSTRecords
+                  [...filteredGSTRecords]
+                    .sort((a, b) => {
+                      const numA = parseInt(a.number_series?.replace(/\D/g, "")) || 0;
+                      const numB = parseInt(b.number_series?.replace(/\D/g, "")) || 0;
+
+                      return numA - numB;
+                    })
                     .map((gst, index) => {
                       const rowBgClass = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
                       const hasTags = (isGSTR1Completed(gst) || isGSTR3BCompleted(gst)) && statusFilter !== "TASK";
+
                       return (
                         <React.Fragment key={gst.id}>
                           <tr
@@ -689,10 +699,16 @@ export default function GSTPage() {
                               {gst.name}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
-                              {gst.phone_no}
+                              <a
+                                href={`tel:${gst.phone_no}`}
+                                className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {gst.phone_no}
+                              </a>
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
-                              {gst.company_name || "-"  }
+                              {gst.company_name || "-"}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               {gst.user_id || "-"}
@@ -796,6 +812,10 @@ export default function GSTPage() {
                                         <div>
                                           <p className="text-xs text-gray-500">Phone</p>
                                           <p className="font-medium text-gray-900">{gst.phone_no}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-500">Email ID</p>
+                                          <p className="font-medium text-gray-900">{gst.email_id || "-"}</p>
                                         </div>
                                         <div>
                                           <p className="text-xs text-gray-500">PAN Card</p>

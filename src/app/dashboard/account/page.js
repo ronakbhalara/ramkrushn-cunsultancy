@@ -380,6 +380,16 @@ export default function AccountPage() {
     XLSX.writeFile(workbook, `Account_Records_${statusFilter}_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}.xlsx`);
   };
 
+  const totalRemainingAmount = accountRecords.reduce((total, account) => {
+    return (
+      total +
+      (
+        parseFloat(account.complete_amount || 0) -
+        parseFloat(account.pending_amount || 0)
+      )
+    );
+  }, 0);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -439,6 +449,11 @@ export default function AccountPage() {
             </svg>
             Export to Excel
           </button>
+          <div className="bg-red-50 border border-red-200 flex flex-col items-center justify-center rounded-lg p-1 px-4">
+            <p className="text-2xl font-bold text-red-600">
+              ₹{formatAmount(totalRemainingAmount)}
+            </p>
+          </div>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -528,7 +543,13 @@ export default function AccountPage() {
                           {account.name}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          {account.phone_no}
+                          <a
+                            href={`tel:${account.phone_no}`}
+                            className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {account.phone_no}
+                          </a>
                         </td>
                         <td className="px-4 py-3">
                           <span

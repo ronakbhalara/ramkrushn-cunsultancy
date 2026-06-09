@@ -113,6 +113,24 @@ export default function GSTForm({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email ID
+              </label>
+              <input
+                type="email"
+                value={formData.email_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, email_id: e.target.value })
+                }
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black ${errors.email_id ? "border-red-500" : "border-gray-300"
+                  }`}
+              />
+              {errors.email_id && (
+                <p className="mt-1 text-sm text-red-600">{errors.email_id}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Company Name
               </label>
               <input

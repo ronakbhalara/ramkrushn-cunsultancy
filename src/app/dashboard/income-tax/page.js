@@ -387,11 +387,20 @@ export default function IncomeTaxPage() {
                   .filter(record => {
                     if (statusFilter !== "ALL" && record.stage !== statusFilter) return false;
                     if (!searchQuery.trim()) return true;
+
                     const query = searchQuery.toLowerCase().trim();
+
                     if (record.number_series && record.number_series.toString().toLowerCase().includes(query)) return true;
                     if (record.name && record.name.toLowerCase().includes(query)) return true;
                     if (record.phone_no && record.phone_no.toLowerCase().includes(query)) return true;
+
                     return false;
+                  })
+                  .sort((a, b) => {
+                    const numA = parseInt(a.number_series?.replace(/\D/g, "")) || 0;
+                    const numB = parseInt(b.number_series?.replace(/\D/g, "")) || 0;
+
+                    return numA - numB;
                   })
                   .map((incomeTax) => (
                     <React.Fragment key={incomeTax.id}>
@@ -406,7 +415,13 @@ export default function IncomeTaxPage() {
                           {incomeTax.name}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          {incomeTax.phone_no}
+                          <a
+                            href={`tel:${incomeTax.phone_no}`}
+                            className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {incomeTax.phone_no}
+                          </a>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
                           {incomeTax.pan_card_no ? incomeTax.pan_card_no.toUpperCase() : "-"}
