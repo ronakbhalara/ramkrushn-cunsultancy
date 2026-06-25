@@ -182,7 +182,7 @@ export default function PolicyPage() {
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Bank Name</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Loan Type</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Link</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Note</th>
+                            {/* <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Note</th> */}
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
@@ -211,7 +211,7 @@ export default function PolicyPage() {
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 title={policy.link}
-                                                className="hover:underline inline-block truncate"
+                                                className="hover:underline inline-block text-blue-600 truncate"
                                             >
                                                 {truncateLink(policy.link)}
                                             </a>
@@ -219,7 +219,7 @@ export default function PolicyPage() {
                                             '-'
                                         )}
                                     </td>
-                                    <td className="px-4 py-4 text-sm text-gray-700">{policy.note || '-'}</td>
+                                    {/* <td className="px-4 py-4 text-sm text-gray-700">{policy.note || '-'}</td> */}
                                     <td className="px-4 py-4 text-sm text-gray-600">{policy.created_at ? new Date(policy.created_at).toLocaleDateString('en-IN') : '-'}</td>
                                     <td className="px-4 py-4 text-sm text-gray-700">
                                         <div className="flex flex-wrap gap-2">

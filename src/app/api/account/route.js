@@ -24,7 +24,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const {
-      number_series, name, phone_no, status, date_time, payment_type,
+      number_series, name, phone_no, status, note, date_time, payment_type,
       pending_amount, complete_amount, reference_name, reference_phone, payment_note
     } = body;
 
@@ -53,6 +53,7 @@ export async function POST(request) {
       complete_amount: complete_amount || 0,
       reference_name: reference_name || '',
       reference_phone: reference_phone || '',
+      note: note || '',
       created_at: new Date().toISOString()
     };
 
@@ -87,7 +88,7 @@ export async function PUT(request) {
   try {
     const body = await request.json();
     const {
-      id, number_series, name, phone_no, status, date_time, payment_type,
+      id, number_series, name, phone_no, status, note, date_time, payment_type,
       pending_amount, complete_amount, reference_name, reference_phone
     } = body;
 
@@ -105,6 +106,7 @@ export async function PUT(request) {
       complete_amount: complete_amount || 0,
       reference_name: reference_name || '',
       reference_phone: reference_phone || '',
+      note: note || '',
       updated_at: new Date().toISOString()
     };
 

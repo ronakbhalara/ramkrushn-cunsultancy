@@ -220,9 +220,9 @@ export default function AccountForm({
                 Payment Note
               </label>
               <textarea
-                value={formData.payment_note}
+                value={formData.note}
                 onChange={handleChange}
-                name="payment_note"
+                name="note"
                 rows="2"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
                 placeholder="Enter note for the initial payment"

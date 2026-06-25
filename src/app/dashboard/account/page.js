@@ -33,6 +33,7 @@ export default function AccountPage() {
     status: "RECEIPT",
     date_time: "",
     payment_type: "",
+    note: "",
     pending_amount: "",
     complete_amount: "",
     reference_name: "",
@@ -172,6 +173,7 @@ export default function AccountPage() {
       complete_amount: account.complete_amount || "",
       reference_name: account.reference_name || "",
       reference_phone: account.reference_phone || "",
+      note: account.note || "",
     });
     setShowForm(true);
   };
@@ -209,7 +211,7 @@ export default function AccountPage() {
       complete_amount: "",
       reference_name: "",
       reference_phone: "",
-      payment_note: "",
+      note: "",
     });
     setErrors({});
     setEditingAccount(null);
@@ -599,6 +601,17 @@ export default function AccountPage() {
                           </div>
                         </td>
                       </tr>
+                      {account.note && (
+                        <tr
+                          className={`cursor-pointer transition-colors`}
+                          onClick={() => toggleLoanDetails(account.id)}
+                        >
+                          <td colSpan="7" className="px-4 pb-3 pt-1 text-xs">
+                            <span className="font-bold text-gray-900">Note: </span>
+                            <span className="font-semibold text-gray-800">{account.note}</span>
+                          </td>
+                        </tr>
+                      )}
                       {expandedAccount === account.id && (
                         <tr className="animate-in slide-in-from-top-1 duration-300">
                           <td colSpan="7" className="px-0 py-0">

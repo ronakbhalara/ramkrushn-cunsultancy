@@ -88,7 +88,7 @@ export default function PolicyForm({ formData, setFormData, onSubmit, onCancel, 
                         </label>
                     </div>
 
-                    <label className="block">
+                    {/* <label className="block">
                         <span className="text-sm font-semibold text-gray-700">Note</span>
                         <textarea
                             value={formData.note}
@@ -97,7 +97,7 @@ export default function PolicyForm({ formData, setFormData, onSubmit, onCancel, 
                             className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#dfc797] focus:ring-2 focus:ring-[#dfc797]/30"
                             placeholder="Add a short note about this policy"
                         />
-                    </label>
+                    </label> */}
 
                     <div className="flex flex-wrap gap-3 justify-end pt-2">
                         <button
