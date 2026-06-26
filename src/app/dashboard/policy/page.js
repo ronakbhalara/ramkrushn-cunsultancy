@@ -23,6 +23,23 @@ export default function PolicyPage() {
         fetchLoanTypes();
     }, []);
 
+    const truncateNote = (note, maxLength = 30) => {
+        if (!note) return "-";
+        if (note.length <= maxLength) return note;
+        return note.substring(0, maxLength) + "...";
+    };
+
+    const copyNote = async (note) => {
+        if (!note) return;
+
+        try {
+            await navigator.clipboard.writeText(note);
+            toast.success("Note copied successfully!");
+        } catch (error) {
+            toast.error("Failed to copy note");
+        }
+    };
+
     const fetchLoanTypes = async () => {
         try {
             const response = await fetch("/api/loan-type");
@@ -182,7 +199,7 @@ export default function PolicyPage() {
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Bank Name</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Loan Type</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Link</th>
-                            {/* <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Note</th> */}
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Note</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
@@ -204,7 +221,7 @@ export default function PolicyPage() {
                                             {policy.loan_type || '-'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-4 text-sm text-[#17312d] max-w-xs">
+                                    <td className="px-4 py-4 text-sm text-[#17312d] max-w-[200px] truncate">
                                         {policy.link ? (
                                             <a
                                                 href={policy.link}
@@ -219,7 +236,19 @@ export default function PolicyPage() {
                                             '-'
                                         )}
                                     </td>
-                                    {/* <td className="px-4 py-4 text-sm text-gray-700">{policy.note || '-'}</td> */}
+                                    <td className="px-4 py-4 text-sm text-gray-700">
+                                        {policy.note ? (
+                                            <span
+                                                onClick={() => copyNote(policy.note)}
+                                                title="Click to copy full note"
+                                                className="cursor-pointer hover:text-blue-600 hover:underline"
+                                            >
+                                                {truncateNote(policy.note)}
+                                            </span>
+                                        ) : (
+                                            "-"
+                                        )}
+                                    </td>
                                     <td className="px-4 py-4 text-sm text-gray-600">{policy.created_at ? new Date(policy.created_at).toLocaleDateString('en-IN') : '-'}</td>
                                     <td className="px-4 py-4 text-sm text-gray-700">
                                         <div className="flex flex-wrap gap-2">
