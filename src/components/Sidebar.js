@@ -64,7 +64,7 @@ export default function Sidebar({
       <aside
         className={`
     fixed top-0 left-0 z-50 h-screen
-    ${isCollapsed ? "w-20" : "w-64"}
+    ${isCollapsed ? "w-20" : "w-48"}
     bg-[#17312d]
     border-r border-[#29433f]
     transform transition-all duration-300 ease-in-out
@@ -172,7 +172,7 @@ export default function Sidebar({
     ${isCollapsed ? "justify-center" : ""}
     h-14 rounded-2xl
     transition-all duration-300
-    px-4
+    px-2
     overflow-visible
     ${isActive
                       ? "bg-[#dfc797] text-[#17312d] shadow-lg"

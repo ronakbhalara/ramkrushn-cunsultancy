@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }) {
         onToggle={() => setIsCollapsed(!isCollapsed)}
       />
 
-      <div className={`transition-all duration-300 flex-1 flex flex-col ${isCollapsed ? 'lg:ml-20' : 'lg:ml-64'} w-full`}>
+      <div className={`transition-all duration-300 flex-1 flex flex-col ${isCollapsed ? 'lg:ml-20' : 'lg:ml-48'} w-full`}>
         <Navbar
           user={user}
           onMenuClick={() => setSidebarOpen(!sidebarOpen)}

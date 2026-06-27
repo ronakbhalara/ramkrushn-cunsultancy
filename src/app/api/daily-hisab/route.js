@@ -36,10 +36,19 @@ export async function POST(request) {
 
     const newRecordRef = doc(collection(db, 'daily_hisab'));
     const currentDate = new Date().toISOString().split("T")[0];
+    const numericAmount = Number(amount);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return NextResponse.json({
+        success: true,
+        data: null,
+        message: 'No daily hisab entry created for zero or invalid amount'
+      });
+    }
 
     const newRecord = {
       type: type || '',
-      amount: amount || 0,
+      amount: numericAmount,
       description: description || '',
       date: date || currentDate,
       created_at: new Date().toISOString()

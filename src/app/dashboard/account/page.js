@@ -120,18 +120,22 @@ export default function AccountPage() {
 
         // DAILY HISAB ENTRY CREATE
         if (!editingAccount) {
-          await fetch("/api/daily-hisab", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              date: formData.date_time,
-              description: `${formData.name} Account Entry`,
-              type: "INCOME",
-              amount: parseFloat(formData.pending_amount || 0),
-            }),
-          });
+          const paidAmount = Number.parseFloat(formData.pending_amount || 0);
+
+          if (Number.isFinite(paidAmount) && paidAmount > 0) {
+            await fetch("/api/daily-hisab", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                date: formData.date_time,
+                description: `${formData.name} Account Entry`,
+                type: "INCOME",
+                amount: paidAmount,
+              }),
+            });
+          }
         }
 
         toast.success(
@@ -420,7 +424,7 @@ export default function AccountPage() {
     XLSX.writeFile(workbook, `Account_Records_${statusFilter}_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}.xlsx`);
   };
 
-  const totalRemainingAmount = accountRecords.reduce((total, account) => {
+  const totalRemainingAmount = filteredAccounts.reduce((total, account) => {
     return (
       total +
       (
