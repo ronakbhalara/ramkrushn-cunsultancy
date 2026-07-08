@@ -5,7 +5,6 @@ import React from "react";
 import { toast } from "react-toastify";
 import GSTForm from "../../../components/GSTForm";
 import GSTInfoModal from "../../../components/GSTInfoModal";
-import TaskForm from "../../../components/TaskForm";
 
 export default function GSTPage() {
   const [gstRecords, setGstRecords] = useState([]);
@@ -50,11 +49,6 @@ export default function GSTPage() {
 
   const [errors, setErrors] = useState({});
 
-  useEffect(() => {
-    fetchGSTRecords();
-    fetchTasks();
-  }, []);
-
   const fetchTasks = async () => {
     try {
       const response = await fetch("/api/tasks");
@@ -80,6 +74,15 @@ export default function GSTPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await fetchGSTRecords();
+      await fetchTasks();
+    };
+
+    void loadInitialData();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -429,8 +432,17 @@ export default function GSTPage() {
     return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
   };
 
+  const getCurrentDay = () => new Date().getDate();
+  const shouldClearGSTTab = getCurrentDay() > 20;
+  const isTaskWindowOpen = () => {
+    const day = getCurrentDay();
+    return day >= 1 && day <= 22;
+  };
+
   const isGSTR1Completed = (gst) => isTaskCompletedThisMonth(gst.last_gstr1_filed_date);
   const isGSTR3BCompleted = (gst) => isTaskCompletedThisMonth(gst.last_gstr3b_filed_date);
+  const isGSTTaskPending = (gst) => !isGSTR1Completed(gst) || !isGSTR3BCompleted(gst);
+  const isGSTTaskCompleted = (gst) => isGSTR1Completed(gst) && isGSTR3BCompleted(gst);
 
   const handleTaskComplete = async (id, taskType) => {
     try {
@@ -452,28 +464,18 @@ export default function GSTPage() {
   };
 
   const filteredGSTRecords = gstRecords.filter(gst => {
-    if (statusFilter === "ALL" || (statusFilter !== "TASK" && statusFilter !== "COMPLETED_TASK")) {
-      // First filter by status
-      if (statusFilter !== "ALL" && statusFilter !== "TASK" && statusFilter !== "COMPLETED_TASK") {
-        if (gst.subject !== statusFilter) return false;
-      }
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
 
-      // Then filter by search query
-      if (!searchQuery.trim()) return true;
-      const query = searchQuery.toLowerCase().trim();
+    if (gst.number_series && gst.number_series.toString().toLowerCase().includes(query)) return true;
+    if (gst.name && gst.name.toLowerCase().includes(query)) return true;
+    if (gst.phone_no && gst.phone_no.toLowerCase().includes(query)) return true;
+    if (gst.phone_no_2 && gst.phone_no_2.toLowerCase().includes(query)) return true;
 
-      if (gst.number_series && gst.number_series.toString().toLowerCase().includes(query)) return true;
-      if (gst.name && gst.name.toLowerCase().includes(query)) return true;
-      if (gst.phone_no && gst.phone_no.toLowerCase().includes(query)) return true;
-      if (gst.phone_no_2 && gst.phone_no_2.toLowerCase().includes(query)) return true;
-
-      return false;
-    }
-    if (statusFilter === "TASK" || statusFilter === "COMPLETED_TASK") {
-      return false;
-    }
-    return gst.subject === statusFilter;
+    return false;
   });
+
+  const gstTabRecordsToShow = statusFilter === "GST" && shouldClearGSTTab ? [] : filteredGSTRecords;
 
   if (loading) {
     return (
@@ -501,25 +503,15 @@ export default function GSTPage() {
             </button>
           </div>
 
-          {/* Task Filters */}
           <div className="flex gap-2 bg-gray-100 p-1.5 rounded-xl border border-gray-200 shadow-sm">
             <button
-              onClick={() => setStatusFilter("TASK")}
-              className={`px-4 py-1.5 rounded-lg font-semibold transition-colors ${statusFilter === "TASK"
+              onClick={() => setStatusFilter("GST")}
+              className={`px-4 py-1.5 rounded-lg font-semibold transition-colors ${statusFilter === "GST"
                 ? "bg-white text-[#17312d] shadow-sm border border-gray-200"
                 : "text-gray-600 hover:bg-gray-200"
                 }`}
             >
-              Pending Task
-            </button>
-            <button
-              onClick={() => setStatusFilter("COMPLETED_TASK")}
-              className={`px-4 py-1.5 rounded-lg font-semibold transition-colors ${statusFilter === "COMPLETED_TASK"
-                ? "bg-white text-[#17312d] shadow-sm border border-gray-200"
-                : "text-gray-600 hover:bg-gray-200"
-                }`}
-            >
-              Complete Task
+              GST
             </button>
           </div>
 
@@ -535,10 +527,10 @@ export default function GSTPage() {
           </div>
         </div>
         <button
-          onClick={() => statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? setShowTaskForm(true) : setShowForm(true)}
+          onClick={() => setShowForm(true)}
           className="px-4 py-2 sm:mt-0 mt-5 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors"
         >
-          {statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? "Add New Task" : "Add New GST"}
+          Add New GST
         </button>
       </div>
 
@@ -554,124 +546,87 @@ export default function GSTPage() {
         />
       )}
 
-      {showTaskForm && (
-        <TaskForm
-          formData={taskFormData}
-          setFormData={setTaskFormData}
-          onSubmit={handleTaskSubmit}
-          onCancel={handleTaskCancel}
-          editingTask={editingTask}
-        />
-      )}
-
       {/* GST Records Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
-              {statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? (
+              {statusFilter === "GST" ? (
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Series Number</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Due Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No.</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
                 </tr>
               ) : (
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    No.
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Phone
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Company Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    User ID
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Password
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No.</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Company Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">User ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Password</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
               )}
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {statusFilter === "TASK" || statusFilter === "COMPLETED_TASK" ? (
-                tasks.filter(t => t.category === "GST" && (statusFilter === "TASK" ? t.status !== "COMPLETED" : t.status === "COMPLETED")).length === 0 ? (
+              {statusFilter === "GST" ? (
+                gstTabRecordsToShow.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
-                      No {statusFilter === "TASK" ? "pending" : "completed"} GST tasks found.
+                    <td colSpan="4" className="px-4 py-8 text-center text-gray-500">
+                      {shouldClearGSTTab
+                        ? "GST data is cleared after the 27th of the month."
+                        : "No GST records found. Click “Add New GST” to get started."}
                     </td>
                   </tr>
                 ) : (
-                  tasks.filter(t => t.category === "GST" && (statusFilter === "TASK" ? t.status !== "COMPLETED" : t.status === "COMPLETED")).map((task, index) => {
-                    const rowBgClass = index % 2 === 0 ? 'bg-gray-100' : 'bg-white hover:bg-gray-50';
-                    return (
-                      <React.Fragment key={task.id}>
-                        <tr className={`transition-colors ${rowBgClass} ${task.description ? 'border-b-0' : ''}`}>
-                          <td className={`px-4 py-3 text-sm font-bold text-gray-900 ${task.status === "COMPLETED" ? "line-through text-gray-400" : ""}`}>
-                            {task.title}
-                          </td>
-                          <td className={`px-4 py-3 text-sm ${getDueDateColor(task.due_date, task.status)}`}>
-                            {task.due_date ? new Date(task.due_date).toLocaleDateString("en-IN") : "-"}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${task.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                              {task.status}
-                            </span>
+                  [...gstTabRecordsToShow]
+                    .sort((a, b) => {
+                      const numA = parseInt(a.number_series?.replace(/\D/g, "")) || 0;
+                      const numB = parseInt(b.number_series?.replace(/\D/g, "")) || 0;
+                      return numA - numB;
+                    })
+                    .map((gst, index) => {
+                      const rowBgClass = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                      return (
+                        <tr key={gst.id} className={rowBgClass}>
+                          <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">{gst.number_series}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{gst.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            <a href={`tel:${gst.phone_no}`} className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium">
+                              {gst.phone_no}
+                            </a>
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <div className="flex gap-2">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }}
-                                className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${task.status === "COMPLETED" ? "bg-gray-200 text-gray-700 hover:bg-gray-300" : "bg-green-100 text-green-700 hover:bg-green-200"}`}
-                              >
-                                {task.status === "COMPLETED" ? "Pending" : "Done"}
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleTaskEdit(task); }}
-                                className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleTaskDelete(task.id); }}
-                                className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
-                              >
-                                Delete
-                              </button>
+                              {!isGSTR1Completed(gst) && (
+                                <button
+                                  onClick={() => handleTaskComplete(gst.id, 'GSTR-1')}
+                                  className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors border border-blue-300"
+                                >
+                                  GSTR-1
+                                </button>
+                              )}
+                              {!isGSTR3BCompleted(gst) && (
+                                <button
+                                  onClick={() => handleTaskComplete(gst.id, 'GSTR-3B')}
+                                  className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors border border-green-300"
+                                >
+                                  GSTR-3B
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
-                        {task.note && (
-                          <tr className={`transition-colors ${rowBgClass}`}>
-                            <td colSpan="4" className="px-4 pb-3 pt-0 text-sm">
-                              <span className="font-bold text-gray-900">Note: </span>
-                              <span className="font-semibold text-gray-800 whitespace-pre-wrap">{task.note}</span>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })
+                      );
+                    })
                 )
               ) : (
                 filteredGSTRecords.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan="7"
-                      className="px-4 py-8 text-center text-gray-500"
-                    >
-                      {statusFilter === "TASK" && new Date().getDate() > 20
-                        ? "Tasks are only visible between the 1st and 20th of the month."
-                        : `No ${statusFilter === "ALL" ? "" : statusFilter.toLowerCase()} GST records found. Click "Add New GST" to get started.`}
+                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                      No GST records found. Click “Add New GST” to get started.
                     </td>
                   </tr>
                 ) : (
@@ -679,25 +634,19 @@ export default function GSTPage() {
                     .sort((a, b) => {
                       const numA = parseInt(a.number_series?.replace(/\D/g, "")) || 0;
                       const numB = parseInt(b.number_series?.replace(/\D/g, "")) || 0;
-
                       return numA - numB;
                     })
                     .map((gst, index) => {
                       const rowBgClass = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
-                      const hasTags = (isGSTR1Completed(gst) || isGSTR3BCompleted(gst)) && statusFilter !== "TASK";
-
+                      const hasTags = statusFilter === "ALL" && isTaskWindowOpen() && isGSTTaskCompleted(gst);
                       return (
                         <React.Fragment key={gst.id}>
                           <tr
                             className={`cursor-pointer transition-colors ${rowBgClass} ${hasTags && expandedGST !== gst.id ? 'border-b-0' : ''}`}
                             onClick={() => toggleGSTDetails(gst.id)}
                           >
-                            <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
-                              {gst.number_series}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
-                              {gst.name}
-                            </td>
+                            <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">{gst.number_series}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{gst.name}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               <a
                                 href={`tel:${gst.phone_no}`}
@@ -707,61 +656,30 @@ export default function GSTPage() {
                                 {gst.phone_no}
                               </a>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
-                              {gst.company_name || "-"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
-                              {gst.user_id || "-"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
-                              {gst.password || "-"}
-                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{gst.company_name || "-"}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{gst.user_id || "-"}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{gst.password || "-"}</td>
                             <td className="px-4 py-3 text-sm">
-                              {statusFilter === "TASK" ? (
-                                <div className="flex gap-2">
-                                  {!isGSTR1Completed(gst) && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleTaskComplete(gst.id, 'GSTR-1');
-                                      }}
-                                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors border border-blue-300"
-                                    >
-                                      GSTR-1
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTaskComplete(gst.id, 'GSTR-3B');
-                                    }}
-                                    className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors border border-green-300"
-                                  >
-                                    GSTR-3B
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEdit(gst);
-                                    }}
-                                    className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete(gst.id);
-                                    }}
-                                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(gst);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(gst.id);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             </td>
                           </tr>
                           {gst.note && (
@@ -779,7 +697,7 @@ export default function GSTPage() {
                             >
                               <td colSpan="7" className="px-4 pb-3 pt-0 text-sm">
                                 <div className="flex gap-2 items-center">
-                                  <span className="font-bold text-gray-900">Task Complete: </span>
+                                  <span className="font-bold text-gray-900">GST Complete: </span>
                                   {isGSTR1Completed(gst) && (
                                     <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex items-center gap-1">
                                       GSTR-1
@@ -909,13 +827,11 @@ export default function GSTPage() {
                               </td>
                             </tr>
                           )}
-
                         </React.Fragment>
                       );
-                    }
-                    )
-                ))
-              }
+                    })
+                )
+              )}
             </tbody>
           </table>
         </div>
