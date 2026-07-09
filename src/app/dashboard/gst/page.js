@@ -436,7 +436,7 @@ export default function GSTPage() {
   const shouldClearGSTTab = getCurrentDay() > 20;
   const isTaskWindowOpen = () => {
     const day = getCurrentDay();
-    return day >= 1 && day <= 22;
+    return day >= 1 && day <= 20;
   };
 
   const isGSTR1Completed = (gst) => isTaskCompletedThisMonth(gst.last_gstr1_filed_date);
@@ -445,6 +445,24 @@ export default function GSTPage() {
   const isGSTTaskCompleted = (gst) => isGSTR1Completed(gst) && isGSTR3BCompleted(gst);
 
   const handleTaskComplete = async (id, taskType) => {
+    const currentRecord = gstRecords.find((gst) => gst.id === id);
+
+    if (!currentRecord) return;
+
+    const optimisticTimestamp = new Date().toISOString();
+
+    setGstRecords((prevRecords) =>
+      prevRecords.map((gst) => {
+        if (gst.id !== id) return gst;
+
+        if (taskType === 'GSTR-1') {
+          return { ...gst, last_gstr1_filed_date: optimisticTimestamp };
+        }
+
+        return { ...gst, last_gstr3b_filed_date: optimisticTimestamp };
+      })
+    );
+
     try {
       const response = await fetch('/api/gst/task', {
         method: 'POST',
@@ -452,13 +470,26 @@ export default function GSTPage() {
         body: JSON.stringify({ id, taskType }),
       });
       const data = await response.json();
+
       if (data.success) {
         toast.success(`${taskType} marked as complete!`);
-        fetchGSTRecords();
+        await fetchGSTRecords();
       } else {
+        setGstRecords((prevRecords) =>
+          prevRecords.map((gst) => {
+            if (gst.id !== id) return gst;
+            return currentRecord;
+          })
+        );
         toast.error(data.message || `Failed to update ${taskType}`);
       }
     } catch (error) {
+      setGstRecords((prevRecords) =>
+        prevRecords.map((gst) => {
+          if (gst.id !== id) return gst;
+          return currentRecord;
+        })
+      );
       toast.error('Network error');
     }
   };
@@ -576,7 +607,7 @@ export default function GSTPage() {
                   <tr>
                     <td colSpan="4" className="px-4 py-8 text-center text-gray-500">
                       {shouldClearGSTTab
-                        ? "GST data is cleared after the 27th of the month."
+                        ? "GST data is cleared after the 20th of the month."
                         : "No GST records found. Click “Add New GST” to get started."}
                     </td>
                   </tr>
@@ -615,6 +646,12 @@ export default function GSTPage() {
                                 >
                                   GSTR-3B
                                 </button>
+                              )}
+
+                              {(isGSTR1Completed(gst) && isGSTR3BCompleted(gst)) && (
+                                <span className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded font-medium">
+                                  Complete
+                                </span>
                               )}
                             </div>
                           </td>
