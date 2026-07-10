@@ -7,15 +7,15 @@ export async function GET() {
   try {
     const q = query(collection(db, 'tasks'), orderBy('created_at', 'desc'));
     const snapshot = await getDocs(q);
-    const data = snapshot.docs.map(doc => {
-       const task = doc.data();
-       return {
-         id: doc.id,
-         ...task,
-         due_date: task.due_date ? (typeof task.due_date === 'string' ? task.due_date.split('T')[0] : task.due_date) : null
-       };
+    const data = snapshot.docs.map(docSnap => {
+      const task = docSnap.data();
+      return {
+        id: docSnap.id,
+        ...task,
+        due_date: task.due_date ? (typeof task.due_date === 'string' ? task.due_date.split('T')[0] : task.due_date) : null
+      };
     });
-    
+
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching tasks:', error);
@@ -30,18 +30,19 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { category, title, description, due_date, status } = body;
+    const { category, title, customer_name, customer_phone, note, description, status } = body;
 
     const newTaskRef = doc(collection(db, 'tasks'));
     const newTask = {
-      category: category || '',
+      category: category || 'LOAN',
       title: title || '',
-      description: description || '',
-      due_date: due_date || null,
+      customer_name: customer_name || '',
+      customer_phone: customer_phone || '',
+      note: note || description || '',
       status: status || 'PENDING',
       created_at: new Date().toISOString()
     };
-    
+
     await setDoc(newTaskRef, newTask);
 
     return NextResponse.json({

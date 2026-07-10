@@ -1,22 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import React from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import TaskForm from "../../../components/TaskForm";
+import { formatDisplayText } from "../../../utils/formatText";
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [categoryFilter, setCategoryFilter] = useState("LOAN");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [formData, setFormData] = useState({
     category: "LOAN",
     title: "",
-    description: "",
-    due_date: "",
+    customer_name: "",
+    customer_phone: "",
+    note: "",
     status: "PENDING",
   });
 
@@ -29,7 +31,7 @@ export default function TasksPage() {
       const response = await fetch("/api/tasks");
       const data = await response.json();
       if (data.success) {
-        setTasks(data.data);
+        setTasks(data.data || []);
       }
     } catch (error) {
       toast.error("Failed to fetch tasks");
@@ -39,6 +41,11 @@ export default function TasksPage() {
   };
 
   const handleSubmit = async () => {
+    if (!formData.title || !formData.customer_name || !formData.customer_phone) {
+      toast.error("Please search and select a valid loan number first");
+      return;
+    }
+
     try {
       const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
       const method = editingTask ? "PUT" : "POST";
@@ -71,11 +78,12 @@ export default function TasksPage() {
   const handleEdit = (task) => {
     setEditingTask(task);
     setFormData({
-      category: task.category,
-      title: task.title,
-      description: task.description || "",
-      due_date: task.due_date || "",
-      status: task.status,
+      category: task.category || "LOAN",
+      title: task.title || "",
+      customer_name: task.customer_name || "",
+      customer_phone: task.customer_phone || "",
+      note: task.note || task.description || "",
+      status: task.status || "PENDING",
     });
     setShowForm(true);
   };
@@ -125,10 +133,11 @@ export default function TasksPage() {
 
   const resetForm = () => {
     setFormData({
-      category: categoryFilter,
+      category: "LOAN",
       title: "",
-      description: "",
-      due_date: "",
+      customer_name: "",
+      customer_phone: "",
+      note: "",
       status: "PENDING",
     });
     setEditingTask(null);
@@ -139,28 +148,24 @@ export default function TasksPage() {
     setShowForm(false);
   };
 
-  const getDueDateColor = (dueDate) => {
-    if (!dueDate) return "text-gray-500";
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(dueDate);
-    due.setHours(0, 0, 0, 0);
-
-    const diffTime = due - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return "text-red-600 font-bold";
-    if (diffDays <= 3) return "text-yellow-600 font-bold";
-    return "text-green-600 font-bold";
-  };
-
   const sortedTasks = [...tasks].sort((a, b) => {
-    if (!a.due_date) return 1;
-    if (!b.due_date) return -1;
-    return new Date(a.due_date) - new Date(b.due_date);
+    const titleA = String(a.title || "").toLowerCase();
+    const titleB = String(b.title || "").toLowerCase();
+    return titleA.localeCompare(titleB);
   });
 
-  const filteredTasks = sortedTasks.filter((task) => task.category === categoryFilter);
+  const filteredTasks = sortedTasks.filter((task) => {
+    const matchesStatus = statusFilter === "ACTIVE" ? task.status !== "COMPLETED" : task.status === "COMPLETED";
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch = !query || [
+      task.title,
+      task.customer_name,
+      task.customer_phone,
+      task.note,
+    ].some((value) => String(value || "").toLowerCase().includes(query));
+
+    return matchesStatus && matchesSearch;
+  });
 
   if (loading) {
     return (
@@ -172,132 +177,113 @@ export default function TasksPage() {
 
   return (
     <div className="p-4 sm:p-0">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-        {/* Category Filter Buttons */}
-        <div className="flex flex-wrap gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 gap-4">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setCategoryFilter("LOAN")}
-            className={`px-4 py-2 rounded-lg font-bold transition-all duration-300 transform ${categoryFilter === "LOAN"
-              ? "bg-[#17312d] text-[#dfc797] shadow-md scale-105"
-              : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-              }`}
+            onClick={() => setStatusFilter("ACTIVE")}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${statusFilter === "ACTIVE" ? "bg-[#17312d] text-[#dfc797]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
           >
-            💰 Loan
+            Active
           </button>
           <button
-            onClick={() => setCategoryFilter("INCOME_TAX")}
-            className={`px-4 py-2 rounded-lg font-bold transition-all duration-300 transform ${categoryFilter === "INCOME_TAX"
-              ? "bg-[#17312d] text-[#dfc797] shadow-md scale-105"
-              : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-              }`}
+            onClick={() => setStatusFilter("COMPLETED")}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${statusFilter === "COMPLETED" ? "bg-[#17312d] text-[#dfc797]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
           >
-            🧾 Income Tax
+            Complete
           </button>
-          <button
-            onClick={() => setCategoryFilter("GST")}
-            className={`px-4 py-2 rounded-lg font-bold transition-all duration-300 transform ${categoryFilter === "GST"
-              ? "bg-[#17312d] text-[#dfc797] shadow-md scale-105"
-              : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-              }`}
-          >
-            📋 GST
-          </button>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by serial, name or mobile"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-[#dfc797]"
+          />
         </div>
 
         <button
           onClick={() => {
-            setFormData({ ...formData, category: categoryFilter });
+            resetForm();
             setShowForm(true);
           }}
-          className="px-5 py-2.5 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-bold shadow-sm transition-all flex items-center gap-2 text-sm"
+          className="px-5 py-2.5 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-bold shadow-sm transition-all"
         >
-          <span>+</span> Add New Task
+          + Add Task
         </button>
       </div>
 
-      {/* Task List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {filteredTasks.length === 0 ? (
-          <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-gray-200">
-            <div className="text-5xl mb-4">📝</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No tasks found</h3>
-            <p className="text-gray-500">Click "Add New Task" to create your first task for this category.</p>
-          </div>
-        ) : (
-          filteredTasks.map((task) => (
-            <div
-              key={task.id}
-              className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4 border-l-4 ${task.status === "COMPLETED" ? "border-green-400 opacity-80" : "border-[#dfc797]"
-                }`}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <h3 className={`text-md font-bold text-gray-900 ${task.status === "COMPLETED" ? "line-through text-gray-400" : ""}`}>
-                    {task.title}
-                  </h3>
-                  {task.due_date && (
-                    <p className={`text-[11px] flex items-center gap-1 mt-0.5 ${getDueDateColor(task.due_date)}`}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                      📅 Due: {new Date(task.due_date).toLocaleDateString("en-IN")}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => handleEdit(task)}
-                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => handleDelete(task.id)}
-                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-
-              {task.description && (
-                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 mb-3 min-h-[60px]">
-                  <p className="text-gray-600 text-[13px] break-words whitespace-pre-wrap">
-                    {task.description}
-                  </p>
-                </div>
+      <div className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Serial No.</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Customer</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mobile</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredTasks.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-4 py-10 text-center text-gray-500">
+                    No tasks found.
+                  </td>
+                </tr>
+              ) : (
+                filteredTasks.map((task) => (
+                  <>
+                    <tr key={task.id} className="bg-white hover:bg-gray-50">
+                      <td className="px-4 py-4 text-sm font-medium text-gray-900">{formatDisplayText(task.title, "-")}</td>
+                      <td className="px-4 py-4 text-sm text-gray-700">{formatDisplayText(task.customer_name, "-")}</td>
+                      <td className="px-4 py-4 text-sm text-gray-700">{task.customer_phone || "-"}</td>
+                      <td className="px-4 py-4 text-sm">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => toggleStatus(task)}
+                            className={`px-3 py-1 text-xs rounded-full font-semibold transition-all ${task.status === "COMPLETED" ? "bg-gray-100 text-gray-600" : "bg-[#dfc797] text-[#17312d] hover:bg-[#f0d9ae]"}`}
+                          >
+                            {task.status === "COMPLETED" ? "Completed" : "Complete"}
+                          </button>
+                          <button
+                            onClick={() => handleEdit(task)}
+                            className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(task.id)}
+                            className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-full hover:bg-red-200"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr key={`${task.id}-note`} className="bg-gray-50">
+                      <td colSpan="4" className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap wrap-break-word">
+                        <span className="font-medium text-gray-600">Note:</span>{" "}
+                        {formatDisplayText(task.note || task.description, "-")}
+                      </td>
+                    </tr>
+                  </>
+                ))
               )}
-
-              <div className="flex items-center justify-between mt-auto">
-                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${task.status === "COMPLETED"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-yellow-100 text-yellow-700"
-                  }`}>
-                  {task.status}
-                </span>
-                <button
-                  onClick={() => toggleStatus(task)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${task.status === "COMPLETED"
-                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    : "bg-[#17312d] text-[#dfc797] hover:bg-[#1b3934]"
-                    }`}
-                >
-                  {task.status === "COMPLETED" ? "Pending" : "Mark Done"}
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Form Modal */}
-      {showForm && (
-        <TaskForm
-          formData={formData}
-          setFormData={setFormData}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          editingTask={editingTask}
-        />
-      )}
-    </div>
+      {
+        showForm && (
+          <TaskForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            editingTask={editingTask}
+          />
+        )
+      }
+    </div >
   );
 }

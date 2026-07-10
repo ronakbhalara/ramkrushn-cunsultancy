@@ -5,6 +5,7 @@ import React from "react";
 import { toast } from "react-toastify";
 import GSTForm from "../../../components/GSTForm";
 import GSTInfoModal from "../../../components/GSTInfoModal";
+import { formatDisplayText } from "../../../utils/formatText";
 
 export default function GSTPage() {
   const [gstRecords, setGstRecords] = useState([]);
@@ -35,6 +36,7 @@ export default function GSTPage() {
     email_id: "",
     reference_name: "",
     reference_phone: "",
+    link: "",
     company_name: "",
     pan_card_no: "",
     subject: "",
@@ -73,6 +75,19 @@ export default function GSTPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getLinkHref = (value) => {
+    if (!value) return null;
+
+    const trimmedValue = String(value).trim();
+    if (!trimmedValue) return null;
+
+    if (/^https?:\/\//i.test(trimmedValue) || /^mailto:/i.test(trimmedValue)) {
+      return trimmedValue;
+    }
+
+    return `https://${trimmedValue}`;
   };
 
   useEffect(() => {
@@ -166,6 +181,7 @@ export default function GSTPage() {
       phone_no: gst.phone_no,
       reference_name: gst.reference_name || "",
       reference_phone: gst.reference_phone || "",
+      link: gst.link || "",
       company_name: gst.company_name || "",
       pan_card_no: gst.pan_card_no || "",
       subject: gst.subject || "",
@@ -211,6 +227,7 @@ export default function GSTPage() {
       email_id: "",
       reference_name: "",
       reference_phone: "",
+      link: "",
       company_name: "",
       pan_card_no: "",
       subject: "",
@@ -423,6 +440,22 @@ export default function GSTPage() {
       month: '2-digit',
       year: 'numeric',
     });
+  };
+
+  const handleCopyValue = async (value, label) => {
+    const text = String(value ?? "").trim();
+
+    if (!text) {
+      toast.error(`${label} is empty`);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
+    } catch (error) {
+      toast.error(`Failed to copy ${label.toLowerCase()}`);
+    }
   };
 
   const isTaskCompletedThisMonth = (dateString) => {
@@ -683,7 +716,7 @@ export default function GSTPage() {
                             onClick={() => toggleGSTDetails(gst.id)}
                           >
                             <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">{gst.number_series}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{gst.name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{formatDisplayText(gst.name, "-")}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               <a
                                 href={`tel:${gst.phone_no}`}
@@ -693,9 +726,31 @@ export default function GSTPage() {
                                 {gst.phone_no}
                               </a>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{gst.company_name || "-"}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{gst.user_id || "-"}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{gst.password || "-"}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{formatDisplayText(gst.company_name, "-")}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyValue(gst.user_id, "User ID");
+                                }}
+                                className="font-medium text-gray-900 hover:text-blue-600 underline-offset-2 hover:underline text-left"
+                              >
+                                {gst.user_id || "-"}
+                              </button>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyValue(gst.password, "Password");
+                                }}
+                                className="font-medium text-gray-900 hover:text-blue-600 underline-offset-2 hover:underline text-left"
+                              >
+                                {gst.password || "-"}
+                              </button>
+                            </td>
                             <td className="px-4 py-3 text-sm">
                               <div className="flex gap-2">
                                 <button
@@ -723,7 +778,7 @@ export default function GSTPage() {
                             <tr className={`transition-colors ${rowBgClass}`}>
                               <td colSpan="4" className="px-4 py-2 text-sm">
                                 <span className="font-bold text-gray-900">Note: </span>
-                                <span className="font-semibold text-gray-800 whitespace-pre-wrap">{gst.note}</span>
+                                <span className="font-semibold text-gray-800 whitespace-pre-wrap">{formatDisplayText(gst.note, "-")}</span>
                               </td>
                             </tr>
                           )}
@@ -762,7 +817,7 @@ export default function GSTPage() {
                                       <div className="space-y-2">
                                         <div>
                                           <p className="text-xs text-gray-500">Name</p>
-                                          <p className="font-medium text-gray-900">{gst.name}</p>
+                                          <p className="font-medium text-gray-900">{formatDisplayText(gst.name, "-")}</p>
                                         </div>
                                         <div>
                                           <p className="text-xs text-gray-500">Phone</p>
@@ -782,7 +837,7 @@ export default function GSTPage() {
                                         </div>
                                         <div>
                                           <p className="text-xs text-gray-500">Company Name</p>
-                                          <p className="font-medium text-gray-900">{gst.company_name || "-"}</p>
+                                          <p className="font-medium text-gray-900">{formatDisplayText(gst.company_name, "-")}</p>
                                         </div>
                                       </div>
                                     </div>
@@ -860,6 +915,20 @@ export default function GSTPage() {
                                       </div>
                                     </div>
                                   </div>
+                                  {gst.link && (
+                                    <div className="mt-3 animate-in fade-in-50 duration-500 delay-400">
+                                      <p className="text-sm text-gray-500">Link</p>
+                                      <a
+                                        href={getLinkHref(gst.link)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline break-all"
+                                      >
+                                        {gst.link}
+                                      </a>
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                             </tr>

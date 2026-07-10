@@ -169,6 +169,19 @@ export default function AccountForm({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Due Date
+              </label>
+              <input
+                type="date"
+                value={formData.due_date || ""}
+                onChange={handleChange}
+                name="due_date"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Payment Type *
               </label>
               <select

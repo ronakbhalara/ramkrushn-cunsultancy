@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { bank_name, link, note, loan_type } = body;
+        const { bank_name, link, note, loan_type, pin } = body;
 
         const newPolicyRef = doc(collection(db, 'policies'));
         const newPolicy = {
@@ -29,6 +29,7 @@ export async function POST(request) {
             link: link || '',
             note: note || '',
             loan_type: loan_type || '',
+            pin: Boolean(pin),
             created_at: new Date().toISOString(),
         };
 

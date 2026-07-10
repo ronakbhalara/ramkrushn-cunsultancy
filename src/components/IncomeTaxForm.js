@@ -208,13 +208,15 @@ export default function IncomeTaxForm({
               </label>
               <select
                 name="stage"
-                value={formData.stage || "Document Pending"}
+                value={formData.stage || "Doc. Process"}
                 onChange={handleChange}
                 className="w-full px-3 py-2 uppercase border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
               >
-                <option value="Document Pending">Document Pending</option>
-                <option value="In-Progress">In-Progress</option>
-                <option value="Complate">Complate</option>
+                <option value="Doc. Process">Doc. Process</option>
+                <option value="Itr Process">Itr Process</option>
+                <option value="E-Verification">E-Verification</option>
+                <option value="Complete">Complete</option>
+                <option value="Close">Close</option>
               </select>
             </div>
 
@@ -244,6 +246,20 @@ export default function IncomeTaxForm({
                   }`}
               />
               {errors.reference_phone && <p className="text-red-500 text-xs mt-1">{errors.reference_phone}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Link
+              </label>
+              <input
+                type="url"
+                value={formData.link || ""}
+                onChange={handleChange}
+                name="link"
+                placeholder="https://example.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+              />
             </div>
             {/* Assessment Year */}
             <div>
@@ -304,8 +320,8 @@ export default function IncomeTaxForm({
                 </p>
               </div> */}
 
-              {/* Existing Documents */}
-              {/* {editingIncomeTax && existingDocuments.length > 0 && (
+          {/* Existing Documents */}
+          {/* {editingIncomeTax && existingDocuments.length > 0 && (
                 <div className="space-y-4">
                   <p className="text-sm font-medium text-gray-700">Existing Documents ({existingDocuments.length}):</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -332,8 +348,8 @@ export default function IncomeTaxForm({
                 </div>
               )} */}
 
-              {/* Selected Files */}
-              {/* {selectedFiles.length > 0 && (
+          {/* Selected Files */}
+          {/* {selectedFiles.length > 0 && (
                 <div className="space-y-4">
                   <p className="text-sm font-medium text-gray-700">Selected Files ({selectedFiles.length}):</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

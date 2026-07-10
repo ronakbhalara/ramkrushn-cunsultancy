@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import React from "react";
 import { toast } from "react-toastify";
 import LoanForm from "../../../components/LoanForm";
-import DocumentsSection from "../../../components/DocumentsSection";
 import TaskForm from "../../../components/TaskForm";
+import { formatDisplayText } from "../../../utils/formatText";
 
 export default function LoanPage() {
   const [loans, setLoans] = useState([]);
@@ -171,7 +171,7 @@ export default function LoanPage() {
       loan_type: loan.loan_type || "",
       reference_name: loan.reference_name || "",
       reference_phone: loan.reference_phone || "",
-      stage: loan.stage,
+      stage: loan.stage || "ACTIVE",
       bank_name: loan.bank_name || "",
       loan_ac_no: loan.loan_ac_no || "",
       loan_amount: loan.loan_amount,
@@ -231,7 +231,11 @@ export default function LoanPage() {
   };
 
   const filteredLoans = loans
-    .filter((loan) => statusFilter === "ALL" || loan.stage === statusFilter)
+    .filter((loan) => {
+      if (statusFilter === "ALL") return true;
+      const loanStage = String(loan.stage || "").trim().toUpperCase();
+      return loanStage === statusFilter;
+    })
     .filter((loan) => {
       if (!startDate && !endDate) return true;
       const dateValue = loan.created_at || loan.emi_date || loan.date || "";
@@ -413,6 +417,15 @@ export default function LoanPage() {
           {/* Loan Filters */}
           <div className="flex gap-2">
             <button
+              onClick={() => setStatusFilter("ALL")}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "ALL"
+                ? "bg-[#dfc797] text-[#17312d]"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+            >
+              All
+            </button>
+            <button
               onClick={() => setStatusFilter("ACTIVE")}
               className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "ACTIVE"
                 ? "bg-[#dfc797] text-[#17312d]"
@@ -422,22 +435,31 @@ export default function LoanPage() {
               Active
             </button>
             <button
-              onClick={() => setStatusFilter("COMPLETE")}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "COMPLETE"
+              onClick={() => setStatusFilter("APPROVAL")}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "APPROVAL"
                 ? "bg-[#dfc797] text-[#17312d]"
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                 }`}
             >
-              Complete
+              Approval
             </button>
             <button
-              onClick={() => setStatusFilter("CLOSE")}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "CLOSE"
+              onClick={() => setStatusFilter("DISBURSED")}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "DISBURSED"
                 ? "bg-[#dfc797] text-[#17312d]"
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                 }`}
             >
-              Close
+              Disbursed
+            </button>
+            <button
+              onClick={() => setStatusFilter("REJECT")}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "REJECT"
+                ? "bg-[#dfc797] text-[#17312d]"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+            >
+              Reject
             </button>
           </div>
 
@@ -663,9 +685,7 @@ export default function LoanPage() {
                               {loan.number_series}
                             </td>
                             <td className="px-4 py-3 text-sm font-bold text-gray-700">
-                              {loan.name
-                                ?.toLowerCase()
-                                .replace(/\b\w/g, (char) => char.toUpperCase())}
+                              {formatDisplayText(loan.name, "-")}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               <div className="flex flex-col gap-1">
@@ -698,10 +718,11 @@ export default function LoanPage() {
                             <td className="px-4 py-3 text-sm text-gray-700">
                               ₹{parseFloat(loan.loan_amount).toLocaleString()}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
-                              {loan.bank_name
-                                ?.toLowerCase()
-                                .replace(/\b\w/g, (char) => char.toUpperCase())}
+                            <td
+                              className="px-4 py-3 text-sm text-gray-700 max-w-[180px] truncate"
+                              title={formatDisplayText(loan.bank_name, "-")}
+                            >
+                              {formatDisplayText(loan.bank_name, "-")}
                             </td>
                             <td className="px-4 py-3 text-sm">
                               <div className="flex gap-2">
@@ -733,7 +754,7 @@ export default function LoanPage() {
                             >
                               <td colSpan="7" className="px-4 pb-3 pt-0 text-xs">
                                 <span className="font-bold text-gray-900">Note: </span>
-                                <span className="font-semibold text-gray-800">{loan.notes}</span>
+                                <span className="font-semibold text-gray-800">{formatDisplayText(loan.notes, "-")}</span>
                               </td>
                             </tr>
                           )}
@@ -748,7 +769,7 @@ export default function LoanPage() {
                                       <div className="space-y-2">
                                         <div>
                                           <p className="text-xs text-gray-500">Name</p>
-                                          <p className="font-medium text-gray-900">{loan.name}</p>
+                                          <p className="font-medium text-gray-900">{formatDisplayText(loan.name, "-")}</p>
                                         </div>
                                         <div>
                                           <p className="text-xs text-gray-500">Primary Phone</p>
@@ -795,7 +816,7 @@ export default function LoanPage() {
                                       <div className="space-y-2">
                                         <div>
                                           <p className="text-xs text-gray-500">Bank Name</p>
-                                          <p className="font-medium text-gray-900">{loan.bank_name || "-"}</p>
+                                          <p className="font-medium text-gray-900">{formatDisplayText(loan.bank_name, "-")}</p>
                                         </div>
                                         <div>
                                           <p className="text-xs text-gray-500">Loan Account</p>
@@ -828,7 +849,7 @@ export default function LoanPage() {
                                       <div className="space-y-2">
                                         <div>
                                           <p className="text-xs text-gray-500">Reference Name</p>
-                                          <p className="font-medium text-gray-900">{loan.reference_name || "-"}</p>
+                                          <p className="font-medium text-gray-900">{formatDisplayText(loan.reference_name, "-")}</p>
                                         </div>
                                         <div>
                                           <p className="text-xs text-gray-500">Reference Phone</p>
@@ -847,11 +868,6 @@ export default function LoanPage() {
                                       </div>
                                     </div>
                                   </div>
-
-                                  {/* Documents Section */}
-                                  <DocumentsSection loanId={loan.id} />
-
-
                                 </div>
                               </td>
                             </tr>

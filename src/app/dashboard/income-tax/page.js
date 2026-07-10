@@ -5,7 +5,7 @@ import React from "react";
 import { toast } from "react-toastify";
 import * as XLSX from 'xlsx';
 import IncomeTaxForm from "../../../components/IncomeTaxForm";
-import IncomeTaxDocumentsSection from "../../../components/IncomeTaxDocumentsSection";
+import { formatDisplayText } from "../../../utils/formatText";
 
 export default function IncomeTaxPage() {
   const [incomeTaxRecords, setIncomeTaxRecords] = useState([]);
@@ -15,18 +15,24 @@ export default function IncomeTaxPage() {
   const [selectedIncomeTax, setSelectedIncomeTax] = useState(null);
   const [expandedIncomeTax, setExpandedIncomeTax] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [yearFilter, setYearFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [accountAmount, setAccountAmount] = useState("");
+  const [accountDueDate, setAccountDueDate] = useState("");
+  const [savingAccount, setSavingAccount] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     phone_no: "",
     reference_name: "",
     reference_phone: "",
+    link: "",
     pan_card_no: "",
     password: "",
     assessment_year: [],
     status: "Pending",
-    stage: "Document Pending",
+    stage: "Doc. Process",
     note: "",
   });
 
@@ -143,13 +149,14 @@ export default function IncomeTaxPage() {
       phone_no: incomeTax.phone_no,
       reference_name: incomeTax.reference_name || "",
       reference_phone: incomeTax.reference_phone || "",
+      link: incomeTax.link || "",
       pan_card_no: incomeTax.pan_card_no || "",
       password: incomeTax.password || "",
       assessment_year: Array.isArray(incomeTax.assessment_year)
         ? incomeTax.assessment_year
         : [],
       status: incomeTax.status || "Pending",
-      stage: incomeTax.stage || "Document Pending",
+      stage: incomeTax.stage || "Doc. Process",
       note: incomeTax.note || "",
     });
     setShowForm(true);
@@ -182,11 +189,12 @@ export default function IncomeTaxPage() {
       phone_no: "",
       reference_name: "",
       reference_phone: "",
+      link: "",
       pan_card_no: "",
       password: "",
       assessment_year: [],
       status: "Pending",
-      stage: "Document Pending",
+      stage: "Doc. Process",
       note: "",
     });
     setErrors({});
@@ -202,11 +210,138 @@ export default function IncomeTaxPage() {
     setExpandedIncomeTax(expandedIncomeTax === incomeTaxId ? null : incomeTaxId);
   };
 
+  const getLinkHref = (value) => {
+    if (!value) return null;
+
+    const trimmedValue = String(value).trim();
+    if (!trimmedValue) return null;
+
+    if (/^https?:\/\//i.test(trimmedValue) || /^mailto:/i.test(trimmedValue)) {
+      return trimmedValue;
+    }
+
+    return `https://${trimmedValue}`;
+  };
+
+  const handleOpenAccountModal = (incomeTax) => {
+    setSelectedIncomeTax(incomeTax);
+    setAccountAmount("");
+    setAccountDueDate(incomeTax?.due_date || "");
+    setShowAccountModal(true);
+  };
+
+  const handleSaveAccountReceipt = async () => {
+    if (!selectedIncomeTax) return;
+
+    const amountValue = parseFloat(accountAmount);
+    if (!amountValue || amountValue <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    try {
+      setSavingAccount(true);
+      const response = await fetch("/api/account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          number_series: selectedIncomeTax.number_series || "",
+          name: selectedIncomeTax.name || "",
+          phone_no: selectedIncomeTax.phone_no || "",
+          status: "RECEIPT",
+          date_time: new Date().toISOString().split("T")[0],
+          due_date: accountDueDate || null,
+          complete_amount: amountValue,
+          reference_name: selectedIncomeTax.reference_name || "",
+          reference_phone: selectedIncomeTax.reference_phone || "",
+          note: `Income Tax Receipt for ${selectedIncomeTax.name || "customer"}`
+          // payment_note: `Receipt amount from Income Tax record`
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success("Account receipt added successfully");
+        setShowAccountModal(false);
+        setSelectedIncomeTax(null);
+        setAccountAmount("");
+        setAccountDueDate("");
+      } else {
+        toast.error(data.message || "Failed to add account receipt");
+      }
+    } catch (error) {
+      toast.error("Network error while saving account receipt");
+    } finally {
+      setSavingAccount(false);
+    }
+  };
+
+  const getStageChipClass = (stage) => {
+    const normalizedStage = String(stage || "").trim().toLowerCase();
+
+    switch (normalizedStage) {
+      case "complete":
+        return "bg-green-100 text-green-800 border border-green-200";
+      case "itr process":
+        return "bg-blue-100 text-blue-800 border border-blue-200";
+      case "e-verification":
+        return "bg-purple-100 text-purple-800 border border-purple-200";
+      case "close":
+        return "bg-gray-100 text-gray-800 border border-gray-200";
+      case "document pending":
+      case "doc. process":
+        return "bg-orange-100 text-orange-800 border border-orange-200";
+      case "in-progress":
+        return "bg-cyan-100 text-cyan-800 border border-cyan-200";
+      default:
+        return "bg-yellow-100 text-yellow-800 border border-yellow-200";
+    }
+  };
+
+  const getAssessmentYears = (value) => {
+    if (!value) return [];
+
+    try {
+      const parsedValue = typeof value === "string" ? JSON.parse(value) : value;
+      if (Array.isArray(parsedValue)) {
+        return parsedValue.filter(Boolean).map((year) => String(year));
+      }
+      return [String(parsedValue)].filter(Boolean);
+    } catch {
+      return [String(value)].filter(Boolean);
+    }
+  };
+
+  const matchesFilters = (record) => {
+    if (statusFilter !== "ALL") {
+      const recordStage = String(record.stage || "").trim();
+      if (recordStage !== statusFilter) return false;
+    }
+
+    if (yearFilter !== "ALL") {
+      const recordYears = getAssessmentYears(record.assessment_year);
+      if (!recordYears.includes(yearFilter)) return false;
+    }
+
+    if (!searchQuery.trim()) return true;
+
+    const query = searchQuery.toLowerCase().trim();
+    if (record.number_series && record.number_series.toString().toLowerCase().includes(query)) return true;
+    if (record.name && record.name.toLowerCase().includes(query)) return true;
+    if (record.phone_no && record.phone_no.toLowerCase().includes(query)) return true;
+
+    return false;
+  };
+
+  const availableAssessmentYears = [...new Set(
+    incomeTaxRecords.flatMap((record) => getAssessmentYears(record.assessment_year))
+  )].sort((a, b) => a.localeCompare(b));
+
   const exportToExcel = () => {
     try {
-      const filteredData = incomeTaxRecords.filter(
-        record => statusFilter === "ALL" || record.stage === statusFilter
-      );
+      const filteredData = incomeTaxRecords.filter(matchesFilters);
 
       if (filteredData.length === 0) {
         toast.error("No data to export");
@@ -263,42 +398,31 @@ export default function IncomeTaxPage() {
       <div className="flex justify-between items-center mb-6 overflow-x-auto pb-2">
         {/* Status Filter */}
         <div className="flex gap-2 whitespace-nowrap">
-          <button
-            onClick={() => setStatusFilter("ALL")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "ALL"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 focus:border-[#dfc797] focus:outline-none"
           >
-            All
-          </button>
-          <button
-            onClick={() => setStatusFilter("Document Pending")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "Document Pending"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+            <option value="ALL">All</option>
+            <option value="Doc. Process">Doc. Process</option>
+            <option value="Itr Process">Itr Process</option>
+            <option value="E-Verification">E-Verification</option>
+            <option value="Complete">Complete</option>
+            <option value="Close">Close</option>
+          </select>
+
+          <select
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 focus:border-[#dfc797] focus:outline-none"
           >
-            Document Pending
-          </button>
-          <button
-            onClick={() => setStatusFilter("In-Progress")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "In-Progress"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            In-Progress
-          </button>
-          <button
-            onClick={() => setStatusFilter("Complate")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "Complate"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            Complete
-          </button>
+            <option value="ALL">All Years</option>
+            {availableAssessmentYears.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
         </div>
         {/* Search Bar */}
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center">
@@ -338,6 +462,69 @@ export default function IncomeTaxPage() {
         />
       )}
 
+      {showAccountModal && selectedIncomeTax && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-[#1c3430] mb-4">Account Receipt Amount</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Create an account receipt for <span className="font-semibold">{selectedIncomeTax.name}</span>.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={accountAmount}
+                  onChange={(e) => setAccountAmount(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+                  placeholder="Enter receipt amount"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  value={accountDueDate}
+                  onChange={(e) => setAccountDueDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-5">
+              <button
+                type="button"
+                onClick={handleSaveAccountReceipt}
+                disabled={savingAccount}
+                className="flex-1 bg-[#dfc797] text-[#17312d] py-2 px-4 rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors disabled:opacity-60"
+              >
+                {savingAccount ? "Saving..." : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAccountModal(false);
+                  setSelectedIncomeTax(null);
+                  setAccountAmount("");
+                  setAccountDueDate("");
+                }}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Income Tax Records Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -365,15 +552,7 @@ export default function IncomeTaxPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {incomeTaxRecords.filter(record => {
-                if (statusFilter !== "ALL" && record.stage !== statusFilter) return false;
-                if (!searchQuery.trim()) return true;
-                const query = searchQuery.toLowerCase().trim();
-                if (record.number_series && record.number_series.toString().toLowerCase().includes(query)) return true;
-                if (record.name && record.name.toLowerCase().includes(query)) return true;
-                if (record.phone_no && record.phone_no.toLowerCase().includes(query)) return true;
-                return false;
-              }).length === 0 ? (
+              {incomeTaxRecords.filter(matchesFilters).length === 0 ? (
                 <tr>
                   <td
                     colSpan="6"
@@ -384,18 +563,7 @@ export default function IncomeTaxPage() {
                 </tr>
               ) : (
                 incomeTaxRecords
-                  .filter(record => {
-                    if (statusFilter !== "ALL" && record.stage !== statusFilter) return false;
-                    if (!searchQuery.trim()) return true;
-
-                    const query = searchQuery.toLowerCase().trim();
-
-                    if (record.number_series && record.number_series.toString().toLowerCase().includes(query)) return true;
-                    if (record.name && record.name.toLowerCase().includes(query)) return true;
-                    if (record.phone_no && record.phone_no.toLowerCase().includes(query)) return true;
-
-                    return false;
-                  })
+                  .filter(matchesFilters)
                   .sort((a, b) => {
                     const numA = parseInt(a.number_series?.replace(/\D/g, "")) || 0;
                     const numB = parseInt(b.number_series?.replace(/\D/g, "")) || 0;
@@ -412,7 +580,7 @@ export default function IncomeTaxPage() {
                           {incomeTax.number_series}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          {incomeTax.name}
+                          {formatDisplayText(incomeTax.name, "-")}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
                           <a
@@ -427,16 +595,23 @@ export default function IncomeTaxPage() {
                           {incomeTax.pan_card_no ? incomeTax.pan_card_no.toUpperCase() : "-"}
                         </td>
                         <td className="px-4 py-3 text-sm">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${incomeTax.stage === 'Complate' ? 'bg-green-100 text-green-800' :
-                            incomeTax.stage === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
-                              incomeTax.stage === 'Document Pending' ? 'bg-orange-100 text-orange-800' :
-                                'bg-yellow-100 text-yellow-800'
-                            }`}>
-                            {incomeTax.stage || "Pending"}
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStageChipClass(incomeTax.stage)}`}>
+                            {incomeTax.stage || "Doc. Process"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <div className="flex gap-2">
+                            {incomeTax.stage === "Complete" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenAccountModal(incomeTax);
+                                }}
+                                className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium transition-colors"
+                              >
+                                Account
+                              </button>
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -465,7 +640,7 @@ export default function IncomeTaxPage() {
                         >
                           <td colSpan="6" className="px-4 pb-3 pt-0 text-sm">
                             <span className="font-bold text-gray-900">Note: </span>
-                            <span className="font-semibold text-gray-800 whitespace-pre-wrap">{incomeTax.note}</span>
+                            <span className="font-semibold text-gray-800 whitespace-pre-wrap">{formatDisplayText(incomeTax.note, "-")}</span>
                           </td>
                         </tr>
                       )}
@@ -480,7 +655,7 @@ export default function IncomeTaxPage() {
                                   <div className="space-y-2">
                                     <div>
                                       <p className="text-xs text-gray-500">Name</p>
-                                      <p className="font-medium text-gray-900">{incomeTax.name}</p>
+                                      <p className="font-medium text-gray-900">{formatDisplayText(incomeTax.name, "-")}</p>
                                     </div>
                                     <div>
                                       <p className="text-xs text-gray-500">Phone</p>
@@ -538,7 +713,7 @@ export default function IncomeTaxPage() {
                                   <div className="space-y-2">
                                     <div>
                                       <p className="text-xs text-gray-500">Reference Name</p>
-                                      <p className="font-medium text-gray-900">{incomeTax.reference_name || "-"}</p>
+                                      <p className="font-medium text-gray-900">{formatDisplayText(incomeTax.reference_name, "-")}</p>
                                     </div>
                                     <div>
                                       <p className="text-xs text-gray-500">Reference Phone</p>
@@ -546,14 +721,25 @@ export default function IncomeTaxPage() {
                                     </div>
                                     <div>
                                       <p className="text-xs text-gray-500">Note</p>
-                                      <p className="font-medium text-gray-900 whitespace-pre-wrap">{incomeTax.note || "-"}</p>
+                                      <p className="font-medium text-gray-900 whitespace-pre-wrap">{formatDisplayText(incomeTax.note, "-")}</p>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-
-                              {/* Documents Section */}
-                              <IncomeTaxDocumentsSection incomeTaxId={incomeTax.id} />
+                              {incomeTax.link && (
+                                <div className="mt-3 animate-in fade-in-50 duration-500 delay-400">
+                                  <p className="text-sm text-gray-500">Link</p>
+                                  <a
+                                    href={getLinkHref(incomeTax.link)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline break-all"
+                                  >
+                                    {incomeTax.link}
+                                  </a>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>

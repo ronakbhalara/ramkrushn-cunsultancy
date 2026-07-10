@@ -21,16 +21,26 @@ export async function GET() {
     const totalAccount = await getCollectionSize('accounts');
     const totalOthers = await getCollectionSize('other_records');
 
-    // Get total loans and loan amount
+    // Get total loans and loan amount for active loans only
+    const isActiveLoan = (loanData) => {
+      const status = String(loanData?.stage || loanData?.loan_status || '').trim().toUpperCase();
+      return status === 'ACTIVE';
+    };
+
     let totalLoans = 0;
     let totalLoanAmount = 0;
     const recentLoans = [];
     try {
       const loansSnapshot = await getDocs(collection(db, 'loans'));
-      totalLoans = loansSnapshot.size;
       loansSnapshot.forEach(doc => {
         const data = doc.data();
-        totalLoanAmount += parseFloat(data.loan_amount || 0);
+        const isActive = isActiveLoan(data);
+
+        if (isActive) {
+          totalLoans += 1;
+          totalLoanAmount += parseFloat(data.loan_amount || 0);
+        }
+
         recentLoans.push({
           id: doc.id,
           name: data.name,
@@ -55,7 +65,7 @@ export async function GET() {
           type: 'Account'
         });
       });
-    } catch (error) {}
+    } catch (error) { }
 
     // Get recent activities for others
     const recentOthers = [];
@@ -70,7 +80,7 @@ export async function GET() {
           type: 'Others'
         });
       });
-    } catch (error) {}
+    } catch (error) { }
 
     // Combine and sort recent activities
     const allActivities = [

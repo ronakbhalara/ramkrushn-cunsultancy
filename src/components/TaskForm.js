@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 export default function TaskForm({
   formData,
@@ -9,97 +10,138 @@ export default function TaskForm({
   onCancel,
   editingTask,
 }) {
+  const [searchValue, setSearchValue] = useState(formData.title || "");
+  const [searchMessage, setSearchMessage] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    setSearchValue(formData.title || "");
+  }, [formData.title]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit();
   };
 
+  const handleSearchLoan = async () => {
+    const value = searchValue.trim();
+    if (!value) {
+      toast.error("Please enter a loan serial number");
+      return;
+    }
+
+    try {
+      setSearching(true);
+      const response = await fetch("/api/loans");
+      const data = await response.json();
+
+      if (!data.success) {
+        setSearchMessage("Unable to search loans right now");
+        return;
+      }
+
+      const normalizedValue = value.toLowerCase();
+      const loan = (data.data || []).find((item) => {
+        const series = String(item.number_series || "").toLowerCase();
+        return series === normalizedValue;
+      });
+
+      if (loan) {
+        setFormData({
+          ...formData,
+          title: loan.number_series || value,
+          customer_name: loan.name || "",
+          customer_phone: loan.phone_no || "",
+        });
+        setSearchMessage(`Customer found: ${loan.name || "-"}`);
+      } else {
+        setFormData({
+          ...formData,
+          title: value,
+          customer_name: "",
+          customer_phone: "",
+        });
+        setSearchMessage("No matching loan found");
+      }
+    } catch (error) {
+      setSearchMessage("Search failed");
+    } finally {
+      setSearching(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
-        <h2 className="text-xl font-bold text-[#1c3430] mb-4">
-          {editingTask ? "Edit Task" : "Add New Task"}
-        </h2>
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <h2 className="text-xl font-bold text-[#1c3430]">
+            {editingTask ? "Edit Task" : "Add New Task"}
+          </h2>
+          <div className="w-full max-w-xs">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Search Loan No.
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+                placeholder="L-1"
+              />
+              <button
+                type="button"
+                onClick={handleSearchLoan}
+                disabled={searching}
+                className="px-3 py-2 bg-[#17312d] text-[#dfc797] rounded-lg text-sm font-semibold disabled:opacity-60"
+              >
+                {searching ? "..." : "Find"}
+              </button>
+            </div>
+            {searchMessage && <p className="text-xs mt-1 text-gray-500">{searchMessage}</p>}
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category *
-            </label>
-            <select
-              required
-              value={formData.category}
-              onChange={(e) =>
-                setFormData({ ...formData, category: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
-            >
-              <option value="LOAN">Loan</option>
-              <option value="GST">GST</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Series Number *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
-              placeholder="Enter Series Number"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              rows="3"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
-              placeholder="Enter task description"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Due Date
+                Customer Name
               </label>
               <input
-                type="date"
-                value={formData.due_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, due_date: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+                type="text"
+                value={formData.customer_name}
+                disabled
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
+                Mobile Number
               </label>
-              <select
-                value={formData.status}
-                onChange={(e) =>
-                  setFormData({ ...formData, status: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
-              >
-                <option value="PENDING">Pending</option>
-                <option value="COMPLETED">Completed</option>
-              </select>
+              <input
+                type="text"
+                value={formData.customer_phone}
+                disabled
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700"
+              />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Note
+            </label>
+            <textarea
+              value={formData.note}
+              onChange={(e) =>
+                setFormData({ ...formData, note: e.target.value })
+              }
+              rows="3"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+              placeholder="Enter task note"
+            />
           </div>
 
           <div className="flex gap-3 pt-4">

@@ -24,7 +24,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const {
-      number_series, name, phone_no, status, note, date_time, payment_type,
+      number_series, name, phone_no, status, note, date_time, due_date, payment_type,
       pending_amount, complete_amount, reference_name, reference_phone, payment_note
     } = body;
 
@@ -40,7 +40,10 @@ export async function POST(request) {
     // });
     // const number_series = String(maxNum + 1).padStart(3, '0');
 
-    const finalStatus = (parseFloat(pending_amount) >= parseFloat(complete_amount) && parseFloat(complete_amount) > 0) ? 'COMPLETE' : status;
+    const normalizedStatus = String(status || '').trim().toUpperCase();
+    const finalStatus = normalizedStatus === 'RECEIPT'
+      ? normalizedStatus
+      : (parseFloat(pending_amount) >= parseFloat(complete_amount) && parseFloat(complete_amount) > 0) ? 'COMPLETE' : normalizedStatus;
 
     const newAccountRef = doc(collection(db, 'accounts'));
     const newAccount = {
@@ -49,6 +52,7 @@ export async function POST(request) {
       phone_no: phone_no || '',
       status: finalStatus || '',
       date_time: date_time || null,
+      due_date: due_date || null,
       pending_amount: pending_amount || 0,
       complete_amount: complete_amount || 0,
       reference_name: reference_name || '',
@@ -88,7 +92,7 @@ export async function PUT(request) {
   try {
     const body = await request.json();
     const {
-      id, number_series, name, phone_no, status, note, date_time, payment_type,
+      id, number_series, name, phone_no, status, note, date_time, due_date, payment_type,
       pending_amount, complete_amount, reference_name, reference_phone
     } = body;
 
@@ -102,6 +106,7 @@ export async function PUT(request) {
       phone_no: phone_no || '',
       status: status || '',
       date_time: date_time || null,
+      due_date: due_date || null,
       pending_amount: pending_amount || 0,
       complete_amount: complete_amount || 0,
       reference_name: reference_name || '',

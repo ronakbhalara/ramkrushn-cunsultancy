@@ -220,8 +220,9 @@ export default function LoanForm({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
               >
                 <option value="ACTIVE">Active</option>
-                <option value="COMPLETE">Complete</option>
-                <option value="CLOSE">Close</option>
+                <option value="APPROVAL">Approval</option>
+                <option value="DISBURSED">Disbursed</option>
+                <option value="REJECT">Reject</option>
               </select>
             </div>
 

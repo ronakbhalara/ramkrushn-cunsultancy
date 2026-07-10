@@ -7,7 +7,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { category, title, description, due_date, status } = body;
+    const { category, title, customer_name, customer_phone, note, description, status } = body;
 
     const recordRef = doc(db, 'tasks', id);
     const snap = await getDoc(recordRef);
@@ -19,10 +19,11 @@ export async function PUT(request, { params }) {
     }
 
     const updateData = {
-      category: category || '',
+      category: category || 'LOAN',
       title: title || '',
-      description: description || '',
-      due_date: due_date || null,
+      customer_name: customer_name || '',
+      customer_phone: customer_phone || '',
+      note: note || description || '',
       status: status || '',
       updated_at: new Date().toISOString()
     };

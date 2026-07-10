@@ -268,6 +268,20 @@ export default function GSTForm({
               </select>
             </div>
 
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Link
+              </label>
+              <input
+                type="url"
+                value={formData.link || ""}
+                onChange={handleChange}
+                name="link"
+                placeholder="https://example.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
+              />
+            </div>
+
             {/* Note Field */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">

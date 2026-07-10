@@ -5,6 +5,7 @@ import React from "react";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import AccountForm from "../../../components/AccountForm";
+import { formatDisplayText } from "../../../utils/formatText";
 
 export default function AccountPage() {
   const [accountRecords, setAccountRecords] = useState([]);
@@ -33,6 +34,7 @@ export default function AccountPage() {
     phone_no: "",
     status: "RECEIPT",
     date_time: "",
+    due_date: "",
     payment_type: "",
     note: "",
     pending_amount: "",
@@ -210,6 +212,7 @@ export default function AccountPage() {
       phone_no: account.phone_no,
       status: account.status,
       date_time: formattedDate,
+      due_date: account.due_date || "",
       payment_type: account.payment_type,
       pending_amount: account.pending_amount || "",
       complete_amount: account.complete_amount || "",
@@ -248,6 +251,7 @@ export default function AccountPage() {
       phone_no: "",
       status: "RECEIPT",
       date_time: "",
+      due_date: "",
       payment_type: "",
       pending_amount: "",
       complete_amount: "",
@@ -382,6 +386,47 @@ export default function AccountPage() {
     if (amount === null || amount === undefined || amount === "") return "-";
     return parseFloat(amount).toFixed(2);
   };
+
+  const getDueDateInfo = (dueDate) => {
+    if (!dueDate) {
+      return { label: "No due date", tone: "text-gray-500", badge: "bg-gray-100 text-gray-600" };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const due = new Date(dueDate);
+    if (Number.isNaN(due.getTime())) {
+      return { label: "Invalid date", tone: "text-gray-500", badge: "bg-gray-100 text-gray-600" };
+    }
+
+    due.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return {
+        label: `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"} overdue`,
+        tone: "text-red-600",
+        badge: "bg-red-100 text-red-700",
+      };
+    }
+
+    if (diffDays === 0) {
+      return { label: "Due today", tone: "text-amber-600", badge: "bg-amber-100 text-amber-700" };
+    }
+
+    return {
+      label: `${diffDays} day${diffDays === 1 ? "" : "s"} remaining`,
+      tone: diffDays <= 3 ? "text-amber-600" : "text-green-600",
+      badge: diffDays <= 3 ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700",
+    };
+  };
+
+  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
+    const aDate = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
+    const bDate = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
+    return aDate - bDate;
+  });
 
   const exportToExcel = () => {
     const dataToExport = filteredAccounts
@@ -548,6 +593,9 @@ export default function AccountPage() {
                   Status
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Due Date
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Remaining Amount
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -556,7 +604,7 @@ export default function AccountPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredAccounts.length === 0 ? (
+              {sortedAccounts.length === 0 ? (
                 <tr>
                   <td
                     colSpan="7"
@@ -566,7 +614,7 @@ export default function AccountPage() {
                   </td>
                 </tr>
               ) : (
-                filteredAccounts.map((account) => (
+                sortedAccounts.map((account) => (
                   <React.Fragment key={account.id}>
                     <tr
                       className="hover:bg-gray-50 cursor-pointer"
@@ -576,7 +624,7 @@ export default function AccountPage() {
                         {account.number_series}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {account.name}
+                        {formatDisplayText(account.name, "-")}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         <a
@@ -600,6 +648,21 @@ export default function AccountPage() {
                         >
                           {account.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {(() => {
+                          const dueInfo = getDueDateInfo(account.due_date);
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <span className={`inline-flex w-fit px-2 py-1 text-[11px] font-semibold rounded-full ${dueInfo.badge}`}>
+                                {account.due_date ? new Date(account.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
+                              </span>
+                              <span className={`text-[11px] font-medium ${dueInfo.tone}`}>
+                                {dueInfo.label}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
@@ -642,7 +705,7 @@ export default function AccountPage() {
                       >
                         <td colSpan="7" className="px-4 pb-3 pt-1 text-xs">
                           <span className="font-bold text-gray-900">Note: </span>
-                          <span className="font-semibold text-gray-800">{account.note}</span>
+                          <span className="font-semibold text-gray-800">{formatDisplayText(account.note, "-")}</span>
                         </td>
                       </tr>
                     )}
@@ -657,7 +720,7 @@ export default function AccountPage() {
                                 <div className="space-y-2">
                                   <div>
                                     <p className="text-xs text-gray-500">Name</p>
-                                    <p className="font-medium text-gray-900">{account.name}</p>
+                                    <p className="font-medium text-gray-900">{formatDisplayText(account.name, "-")}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-gray-500">Phone</p>
@@ -678,6 +741,10 @@ export default function AccountPage() {
                                       {account.status}
                                     </span>
                                   </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Due Date</p>
+                                    <p className="font-medium text-gray-900">{account.due_date ? new Date(account.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}</p>
+                                  </div>
                                 </div>
                               </div>
 
@@ -697,6 +764,12 @@ export default function AccountPage() {
                                     <p className="text-xs text-gray-500">Remaining Amount</p>
                                     <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
                                       ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Reminder</p>
+                                    <p className={`font-medium ${getDueDateInfo(account.due_date).tone}`}>
+                                      {getDueDateInfo(account.due_date).label}
                                     </p>
                                   </div>
                                 </div>

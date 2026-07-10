@@ -12,7 +12,7 @@ async function ensureDirectoryExists(dir) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-  } catch (error) {}
+  } catch (error) { }
 }
 
 // GET all Income Tax records
@@ -21,7 +21,7 @@ export async function GET() {
     const q = query(collection(db, 'income_tax_records'), orderBy('created_at', 'desc'));
     const snapshot = await getDocs(q);
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
+
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching Income Tax records:', error);
@@ -37,7 +37,7 @@ export async function POST(request) {
   try {
     const formData = await request.formData();
     const files = formData.getAll('files');
-    
+
     // Generate number series
     const snapshot = await getDocs(collection(db, 'income_tax_records'));
     let maxNum = 0;
@@ -57,6 +57,7 @@ export async function POST(request) {
       phone_no: formData.get('phone_no') || '',
       reference_name: formData.get('reference_name') || '',
       reference_phone: formData.get('reference_phone') || '',
+      link: formData.get('link') || '',
       pan_card_no: formData.get('pan_card_no') || '',
       password: formData.get('password') || '',
       assessment_year: formData.get('assessment_year') || '',
@@ -65,7 +66,7 @@ export async function POST(request) {
       note: formData.get('note') || '',
       created_at: new Date().toISOString()
     };
-    
+
     await setDoc(newRecordRef, newRecord);
     const incomeTaxId = newRecordRef.id;
 
@@ -107,12 +108,13 @@ export async function PUT(request) {
     const formData = await request.formData();
     const id = formData.get('id');
     const files = formData.getAll('files');
-    
+
     const updateData = {
       name: formData.get('name') || '',
       phone_no: formData.get('phone_no') || '',
       reference_name: formData.get('reference_name') || '',
       reference_phone: formData.get('reference_phone') || '',
+      link: formData.get('link') || '',
       pan_card_no: formData.get('pan_card_no') || '',
       password: formData.get('password') || '',
       assessment_year: formData.get('assessment_year') || '',
@@ -169,11 +171,11 @@ export async function DELETE(request) {
         { status: 400 }
       );
     }
-    
+
     // Delete associated documents first
     const q = query(collection(db, 'income_tax_documents'), where('income_tax_id', '==', id));
     const docsSnapshot = await getDocs(q);
-    
+
     for (const d of docsSnapshot.docs) {
       await deleteDoc(doc(db, 'income_tax_documents', d.id));
     }

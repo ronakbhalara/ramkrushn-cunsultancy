@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import PolicyForm from "../../../components/PolicyForm";
+import { formatDisplayText } from "../../../utils/formatText";
 
 export default function PolicyPage() {
     const [policies, setPolicies] = useState([]);
@@ -16,6 +17,7 @@ export default function PolicyPage() {
         link: "",
         note: "",
         loan_type: "",
+        pin: false,
     });
 
     useEffect(() => {
@@ -102,6 +104,7 @@ export default function PolicyPage() {
             link: policy.link || "",
             note: policy.note || "",
             loan_type: policy.loan_type || "",
+            pin: Boolean(policy.pin),
         });
         setShowForm(true);
     };
@@ -126,8 +129,33 @@ export default function PolicyPage() {
     };
 
     const resetForm = () => {
-        setFormData({ bank_name: "", link: "", note: "", loan_type: "" });
+        setFormData({ bank_name: "", link: "", note: "", loan_type: "", pin: false });
         setEditingPolicy(null);
+    };
+
+    const handleTogglePin = async (policy) => {
+        try {
+            const response = await fetch(`/api/policies/${policy.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    ...policy,
+                    pin: !Boolean(policy.pin),
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setPolicies(prev => prev.map(item => item.id === policy.id ? { ...item, pin: !Boolean(policy.pin) } : item));
+                toast.success(policy.pin ? "Policy unpinned" : "Policy pinned");
+            } else {
+                toast.error(data.message || "Failed to update pin");
+            }
+        } catch (error) {
+            toast.error("Network error");
+        }
     };
 
     const handleCancel = () => {
@@ -140,6 +168,12 @@ export default function PolicyPage() {
         if (link.length <= maxLength) return link;
         return link.substring(0, maxLength) + '...';
     };
+
+    const sortedPolicies = [...policies].sort((a, b) => {
+        if (a.pin && !b.pin) return -1;
+        if (!a.pin && b.pin) return 1;
+        return 0;
+    });
 
     if (loading) {
         return (
@@ -195,27 +229,40 @@ export default function PolicyPage() {
                 <table className="min-w-full table-auto">
                     <thead className="bg-gray-50 border-b">
                         <tr>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">#</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"></th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Bank Name</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Loan Type</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Link</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Note</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {policies.filter(p => typeFilter === "ALL" || p.loan_type === typeFilter).length === 0 ? (
+                        {sortedPolicies.filter(p => typeFilter === "ALL" || p.loan_type === typeFilter).length === 0 ? (
                             <tr>
                                 <td colSpan="7" className="px-4 py-10 text-center text-gray-500">
                                     No policies found. Click "Add Policy" to create one.
                                 </td>
                             </tr>
                         ) : (
-                            policies.filter(p => typeFilter === "ALL" || p.loan_type === typeFilter).map((policy, index) => (
+                            sortedPolicies.filter(p => typeFilter === "ALL" || p.loan_type === typeFilter).map((policy, index) => (
                                 <tr key={policy.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                                    <td className="px-4 py-4 text-sm text-gray-700">{index + 1}</td>
-                                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{policy.bank_name || '-'}</td>
+                                    <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleTogglePin(policy);
+                                            }}
+                                            className={`rounded-full p-1.5 transition-all ${policy.pin ? "text-amber-500 hover:text-amber-600" : "text-gray-400 hover:text-gray-600"}`}
+                                            title={policy.pin ? "Unpin policy" : "Pin policy"}
+                                        >
+                                            {policy.pin ? "📌" : "📍"}
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                                        {formatDisplayText(policy.bank_name, '-')}
+                                    </td>
                                     <td className="px-4 py-4 text-sm">
                                         <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                                             {policy.loan_type || '-'}
@@ -243,13 +290,12 @@ export default function PolicyPage() {
                                                 title="Click to copy full note"
                                                 className="cursor-pointer hover:text-blue-600 hover:underline"
                                             >
-                                                {truncateNote(policy.note)}
+                                                {truncateNote(formatDisplayText(policy.note, '-'))}
                                             </span>
                                         ) : (
                                             "-"
                                         )}
                                     </td>
-                                    <td className="px-4 py-4 text-sm text-gray-600">{policy.created_at ? new Date(policy.created_at).toLocaleDateString('en-IN') : '-'}</td>
                                     <td className="px-4 py-4 text-sm text-gray-700">
                                         <div className="flex flex-wrap gap-2">
                                             <button

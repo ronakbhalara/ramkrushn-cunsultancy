@@ -6,7 +6,7 @@ export async function PUT(request, { params }) {
     try {
         const { id } = await params;
         const body = await request.json();
-        const { bank_name, link, note, loan_type } = body;
+        const { bank_name, link, note, loan_type, pin } = body;
 
         const recordRef = doc(db, 'policies', id);
         const snap = await getDoc(recordRef);
@@ -22,6 +22,7 @@ export async function PUT(request, { params }) {
             link: link || '',
             note: note || '',
             loan_type: loan_type || '',
+            pin: Boolean(pin),
             updated_at: new Date().toISOString(),
         };
 
