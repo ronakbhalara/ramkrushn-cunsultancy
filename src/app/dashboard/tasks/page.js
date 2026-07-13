@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import TaskForm from "../../../components/TaskForm";
 import { formatDisplayText } from "../../../utils/formatText";
@@ -41,10 +41,6 @@ export default function TasksPage() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.title || !formData.customer_name || !formData.customer_phone) {
-      toast.error("Please search and select a valid loan number first");
-      return;
-    }
 
     try {
       const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
@@ -216,9 +212,10 @@ export default function TasksPage() {
           <table className="min-w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Serial No.</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Customer</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">No.</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mobile</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Note</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
               </tr>
             </thead>
@@ -231,11 +228,22 @@ export default function TasksPage() {
                 </tr>
               ) : (
                 filteredTasks.map((task) => (
-                  <>
-                    <tr key={task.id} className="bg-white hover:bg-gray-50">
+                  <React.Fragment key={task.id}>
+                    <tr className="bg-white hover:bg-gray-50">
                       <td className="px-4 py-4 text-sm font-medium text-gray-900">{formatDisplayText(task.title, "-")}</td>
-                      <td className="px-4 py-4 text-sm text-gray-700">{formatDisplayText(task.customer_name, "-")}</td>
-                      <td className="px-4 py-4 text-sm text-gray-700">{task.customer_phone || "-"}</td>
+                      <td className="px-4 py-4 text-sm font-bold text-gray-700">{formatDisplayText(task.customer_name, "-")}</td>
+                      <td className="px-4 py-4 text-sm text-gray-700">
+                        <a
+                          href={`tel:${task.customer_phone}`}
+                          className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {task.customer_phone || "-"}
+                        </a>
+                      </td>
+                      <td title={task.note || task.description} className="px-4 py-4 text-sm max-w-28 truncate font-bold text-gray-700">
+                        {formatDisplayText(task.note || task.description, "-")}
+                      </td>
                       <td className="px-4 py-4 text-sm">
                         <div className="flex flex-wrap gap-2">
                           <button
@@ -259,13 +267,7 @@ export default function TasksPage() {
                         </div>
                       </td>
                     </tr>
-                    <tr key={`${task.id}-note`} className="bg-gray-50">
-                      <td colSpan="4" className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap wrap-break-word">
-                        <span className="font-medium text-gray-600">Note:</span>{" "}
-                        {formatDisplayText(task.note || task.description, "-")}
-                      </td>
-                    </tr>
-                  </>
+                  </React.Fragment>
                 ))
               )}
             </tbody>

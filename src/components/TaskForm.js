@@ -13,6 +13,7 @@ export default function TaskForm({
   const [searchValue, setSearchValue] = useState(formData.title || "");
   const [searchMessage, setSearchMessage] = useState("");
   const [searching, setSearching] = useState(false);
+  const [isCustomerAutoPopulated, setIsCustomerAutoPopulated] = useState(false);
 
   useEffect(() => {
     setSearchValue(formData.title || "");
@@ -53,6 +54,7 @@ export default function TaskForm({
           customer_name: loan.name || "",
           customer_phone: loan.phone_no || "",
         });
+        setIsCustomerAutoPopulated(true);
         setSearchMessage(`Customer found: ${loan.name || "-"}`);
       } else {
         setFormData({
@@ -61,6 +63,7 @@ export default function TaskForm({
           customer_name: "",
           customer_phone: "",
         });
+        setIsCustomerAutoPopulated(false);
         setSearchMessage("No matching loan found");
       }
     } catch (error) {
@@ -111,8 +114,15 @@ export default function TaskForm({
               <input
                 type="text"
                 value={formData.customer_name}
-                disabled
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700"
+                onChange={(e) =>
+                  setFormData({ ...formData, customer_name: e.target.value })
+                }
+                disabled={isCustomerAutoPopulated}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-black ${isCustomerAutoPopulated
+                  ? "bg-gray-100 border-gray-200 text-gray-700"
+                  : "focus:ring-2 focus:ring-[#dfc797] focus:border-transparent"
+                  }`}
+                placeholder="Customer name"
               />
             </div>
 
@@ -123,8 +133,15 @@ export default function TaskForm({
               <input
                 type="text"
                 value={formData.customer_phone}
-                disabled
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700"
+                onChange={(e) =>
+                  setFormData({ ...formData, customer_phone: e.target.value })
+                }
+                disabled={isCustomerAutoPopulated}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-black ${isCustomerAutoPopulated
+                  ? "bg-gray-100 border-gray-200 text-gray-700"
+                  : "focus:ring-2 focus:ring-[#dfc797] focus:border-transparent"
+                  }`}
+                placeholder="Mobile number"
               />
             </div>
           </div>

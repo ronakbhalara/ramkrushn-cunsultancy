@@ -260,7 +260,7 @@ export default function PolicyPage() {
                                             {policy.pin ? "📌" : "📍"}
                                         </button>
                                     </td>
-                                    <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                                    <td className="px-4 py-4 text-sm font-bold text-gray-900">
                                         {formatDisplayText(policy.bank_name, '-')}
                                     </td>
                                     <td className="px-4 py-4 text-sm">

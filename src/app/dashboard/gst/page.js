@@ -36,7 +36,6 @@ export default function GSTPage() {
     email_id: "",
     reference_name: "",
     reference_phone: "",
-    link: "",
     company_name: "",
     pan_card_no: "",
     subject: "",
@@ -75,19 +74,6 @@ export default function GSTPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getLinkHref = (value) => {
-    if (!value) return null;
-
-    const trimmedValue = String(value).trim();
-    if (!trimmedValue) return null;
-
-    if (/^https?:\/\//i.test(trimmedValue) || /^mailto:/i.test(trimmedValue)) {
-      return trimmedValue;
-    }
-
-    return `https://${trimmedValue}`;
   };
 
   useEffect(() => {
@@ -181,7 +167,6 @@ export default function GSTPage() {
       phone_no: gst.phone_no,
       reference_name: gst.reference_name || "",
       reference_phone: gst.reference_phone || "",
-      link: gst.link || "",
       company_name: gst.company_name || "",
       pan_card_no: gst.pan_card_no || "",
       subject: gst.subject || "",
@@ -227,7 +212,6 @@ export default function GSTPage() {
       email_id: "",
       reference_name: "",
       reference_phone: "",
-      link: "",
       company_name: "",
       pan_card_no: "",
       subject: "",
@@ -656,7 +640,7 @@ export default function GSTPage() {
                       return (
                         <tr key={gst.id} className={rowBgClass}>
                           <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">{gst.number_series}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{gst.name}</td>
+                          <td className="px-4 py-3 text-sm font-bold text-gray-700">{gst.name}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">
                             <a href={`tel:${gst.phone_no}`} className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium">
                               {gst.phone_no}
@@ -716,7 +700,7 @@ export default function GSTPage() {
                             onClick={() => toggleGSTDetails(gst.id)}
                           >
                             <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">{gst.number_series}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{formatDisplayText(gst.name, "-")}</td>
+                            <td className="px-4 py-3 text-sm font-bold text-gray-700">{formatDisplayText(gst.name, "-")}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">
                               <a
                                 href={`tel:${gst.phone_no}`}
@@ -915,20 +899,6 @@ export default function GSTPage() {
                                       </div>
                                     </div>
                                   </div>
-                                  {gst.link && (
-                                    <div className="mt-3 animate-in fade-in-50 duration-500 delay-400">
-                                      <p className="text-sm text-gray-500">Link</p>
-                                      <a
-                                        href={getLinkHref(gst.link)}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline break-all"
-                                      >
-                                        {gst.link}
-                                      </a>
-                                    </div>
-                                  )}
                                 </div>
                               </td>
                             </tr>

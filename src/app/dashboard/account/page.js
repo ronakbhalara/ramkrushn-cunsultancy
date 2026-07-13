@@ -18,7 +18,7 @@ export default function AccountPage() {
   const [paymentHistory, setPaymentHistory] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
-  const [moduleFilter, setModuleFilter] = useState("Loan");
+  const [moduleFilter, setModuleFilter] = useState("All");
   const [paymentFormData, setPaymentFormData] = useState({
     amount: "",
     date: new Date().toISOString().split('T')[0],
@@ -623,7 +623,7 @@ export default function AccountPage() {
                       <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
                         {account.number_series}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
+                      <td className="px-4 py-3 text-sm font-bold text-gray-700">
                         {formatDisplayText(account.name, "-")}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">

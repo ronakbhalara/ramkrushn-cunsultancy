@@ -27,12 +27,10 @@ export default function IncomeTaxPage() {
     phone_no: "",
     reference_name: "",
     reference_phone: "",
-    link: "",
     pan_card_no: "",
     password: "",
     assessment_year: [],
-    status: "Pending",
-    stage: "Doc. Process",
+    stage: "Document Pending",
     note: "",
   });
 
@@ -149,14 +147,12 @@ export default function IncomeTaxPage() {
       phone_no: incomeTax.phone_no,
       reference_name: incomeTax.reference_name || "",
       reference_phone: incomeTax.reference_phone || "",
-      link: incomeTax.link || "",
       pan_card_no: incomeTax.pan_card_no || "",
       password: incomeTax.password || "",
       assessment_year: Array.isArray(incomeTax.assessment_year)
         ? incomeTax.assessment_year
         : [],
-      status: incomeTax.status || "Pending",
-      stage: incomeTax.stage || "Doc. Process",
+      stage: incomeTax.stage || "Document Pending",
       note: incomeTax.note || "",
     });
     setShowForm(true);
@@ -189,12 +185,10 @@ export default function IncomeTaxPage() {
       phone_no: "",
       reference_name: "",
       reference_phone: "",
-      link: "",
       pan_card_no: "",
       password: "",
       assessment_year: [],
-      status: "Pending",
-      stage: "Doc. Process",
+      stage: "Document Pending",
       note: "",
     });
     setErrors({});
@@ -208,19 +202,6 @@ export default function IncomeTaxPage() {
 
   const toggleIncomeTaxDetails = (incomeTaxId) => {
     setExpandedIncomeTax(expandedIncomeTax === incomeTaxId ? null : incomeTaxId);
-  };
-
-  const getLinkHref = (value) => {
-    if (!value) return null;
-
-    const trimmedValue = String(value).trim();
-    if (!trimmedValue) return null;
-
-    if (/^https?:\/\//i.test(trimmedValue) || /^mailto:/i.test(trimmedValue)) {
-      return trimmedValue;
-    }
-
-    return `https://${trimmedValue}`;
   };
 
   const handleOpenAccountModal = (incomeTax) => {
@@ -250,7 +231,6 @@ export default function IncomeTaxPage() {
           number_series: selectedIncomeTax.number_series || "",
           name: selectedIncomeTax.name || "",
           phone_no: selectedIncomeTax.phone_no || "",
-          status: "RECEIPT",
           date_time: new Date().toISOString().split("T")[0],
           due_date: accountDueDate || null,
           complete_amount: amountValue,
@@ -291,7 +271,7 @@ export default function IncomeTaxPage() {
       case "close":
         return "bg-gray-100 text-gray-800 border border-gray-200";
       case "document pending":
-      case "doc. process":
+      case "document pending":
         return "bg-orange-100 text-orange-800 border border-orange-200";
       case "in-progress":
         return "bg-cyan-100 text-cyan-800 border border-cyan-200";
@@ -352,7 +332,6 @@ export default function IncomeTaxPage() {
         "NO.": record.number_series,
         "Name": record.name || "-",
         "Phone": record.phone_no || "-",
-        "Status": record.status || "-",
         "Pan No": record.pan_card_no ? record.pan_card_no.toUpperCase() : "-",
         "Password": record.password || "-",
         "Reference Name": record.reference_name || "-",
@@ -404,7 +383,7 @@ export default function IncomeTaxPage() {
             className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 focus:border-[#dfc797] focus:outline-none"
           >
             <option value="ALL">All</option>
-            <option value="Doc. Process">Doc. Process</option>
+            <option value="Document Pending">Document Pending</option>
             <option value="Itr Process">Itr Process</option>
             <option value="E-Verification">E-Verification</option>
             <option value="Complete">Complete</option>
@@ -579,7 +558,7 @@ export default function IncomeTaxPage() {
                         <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
                           {incomeTax.number_series}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm font-bold text-gray-700">
                           {formatDisplayText(incomeTax.name, "-")}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
@@ -596,7 +575,7 @@ export default function IncomeTaxPage() {
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStageChipClass(incomeTax.stage)}`}>
-                            {incomeTax.stage || "Doc. Process"}
+                            {incomeTax.stage || "Document Pending"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm">
@@ -677,10 +656,6 @@ export default function IncomeTaxPage() {
                                   <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Status & Stage</h4>
                                   <div className="space-y-2">
                                     <div>
-                                      <p className="text-xs text-gray-500">Status</p>
-                                      <p className="font-medium text-gray-900 uppercase">{incomeTax.status || "Pending"}</p>
-                                    </div>
-                                    <div>
                                       <p className="text-xs text-gray-500">Stage</p>
                                       <p className="font-medium text-gray-900 uppercase">{incomeTax.stage || "Document Pending"}</p>
                                     </div>
@@ -726,20 +701,6 @@ export default function IncomeTaxPage() {
                                   </div>
                                 </div>
                               </div>
-                              {incomeTax.link && (
-                                <div className="mt-3 animate-in fade-in-50 duration-500 delay-400">
-                                  <p className="text-sm text-gray-500">Link</p>
-                                  <a
-                                    href={getLinkHref(incomeTax.link)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline break-all"
-                                  >
-                                    {incomeTax.link}
-                                  </a>
-                                </div>
-                              )}
                             </div>
                           </td>
                         </tr>

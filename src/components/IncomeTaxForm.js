@@ -184,23 +184,6 @@ export default function IncomeTaxForm({
               </div>
             </div>
 
-            {/* Status Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
-              <select
-                name="status"
-                value={formData.status || "Pending"}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border uppercase border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
-              >
-                <option value="Pending">Pending</option>
-                <option value="Verified">Verified</option>
-                <option value="Curiyar">Curiyar</option>
-              </select>
-            </div>
-
             {/* Stage Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -208,11 +191,11 @@ export default function IncomeTaxForm({
               </label>
               <select
                 name="stage"
-                value={formData.stage || "Doc. Process"}
+                value={formData.stage || "Document Pending"}
                 onChange={handleChange}
                 className="w-full px-3 py-2 uppercase border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
               >
-                <option value="Doc. Process">Doc. Process</option>
+                <option value="Document Pending">Document Pending</option>
                 <option value="Itr Process">Itr Process</option>
                 <option value="E-Verification">E-Verification</option>
                 <option value="Complete">Complete</option>
@@ -248,19 +231,6 @@ export default function IncomeTaxForm({
               {errors.reference_phone && <p className="text-red-500 text-xs mt-1">{errors.reference_phone}</p>}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Link
-              </label>
-              <input
-                type="url"
-                value={formData.link || ""}
-                onChange={handleChange}
-                name="link"
-                placeholder="https://example.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#dfc797] focus:border-transparent text-black"
-              />
-            </div>
             {/* Assessment Year */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Assessment Year</label>

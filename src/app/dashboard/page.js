@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatDisplayText } from '../../utils/formatText';
 
 export default function Dashboard() {
   const [data, setData] = useState({
@@ -187,7 +188,7 @@ export default function Dashboard() {
                         {activity.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">{activity.name || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">{formatDisplayText(activity.name || 'N/A')}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(activity.created_at)}</td>
                   </tr>
                 ))
