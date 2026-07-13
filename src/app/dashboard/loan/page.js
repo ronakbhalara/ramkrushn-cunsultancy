@@ -415,52 +415,22 @@ export default function LoanPage() {
         {/* Status Filter */}
         <div className="flex flex-wrap gap-4 items-center">
           {/* Loan Filters */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setStatusFilter("ALL")}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "ALL"
-                ? "bg-[#dfc797] text-[#17312d]"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+          <div className="flex items-center gap-2">
+            <label htmlFor="loan-status-filter" className="text-sm font-semibold text-gray-700">
+              Filter
+            </label>
+            <select
+              id="loan-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm focus:border-[#dfc797] focus:outline-none"
             >
-              All
-            </button>
-            <button
-              onClick={() => setStatusFilter("ACTIVE")}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "ACTIVE"
-                ? "bg-[#dfc797] text-[#17312d]"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              Active
-            </button>
-            <button
-              onClick={() => setStatusFilter("APPROVAL")}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "APPROVAL"
-                ? "bg-[#dfc797] text-[#17312d]"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              Approval
-            </button>
-            <button
-              onClick={() => setStatusFilter("DISBURSED")}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "DISBURSED"
-                ? "bg-[#dfc797] text-[#17312d]"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              Disbursed
-            </button>
-            <button
-              onClick={() => setStatusFilter("REJECT")}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${statusFilter === "REJECT"
-                ? "bg-[#dfc797] text-[#17312d]"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              Reject
-            </button>
+              <option value="ALL">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="APPROVAL">Approval</option>
+              <option value="DISBURSED">Disbursed</option>
+              <option value="REJECT">Reject</option>
+            </select>
           </div>
 
           {/* Task Filters */}
