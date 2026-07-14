@@ -46,6 +46,39 @@ export default function AccountPage() {
 
   const [errors, setErrors] = useState({});
 
+  const getDateInputValue = (value) => {
+    if (!value) return "";
+
+    const rawValue = typeof value === "string" ? value.trim() : value;
+    if (!rawValue) return "";
+
+    const rawDate = rawValue instanceof Date ? rawValue.toISOString() : String(rawValue);
+    const datePart = rawDate.includes("T") ? rawDate.split("T")[0] : rawDate;
+    const [year, month, day] = datePart.split("-").map(Number);
+
+    if (!year || !month || !day) return "";
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  };
+
+  const getComparableDate = (value) => {
+    const dateValue = getDateInputValue(value);
+    if (!dateValue) return null;
+
+    const [year, month, day] = dateValue.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDisplayDate = (value) => {
+    const parsedDate = getComparableDate(value);
+    if (!parsedDate) return "-";
+
+    return parsedDate.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   useEffect(() => {
     fetchAccountRecords();
   }, []);
@@ -110,10 +143,16 @@ export default function AccountPage() {
         ? { ...formData, id: editingAccount.id }
         : formData;
 
+      const normalizedPayload = {
+        ...payload,
+        date_time: getDateInputValue(formData.date_time),
+        due_date: getDateInputValue(formData.due_date),
+      };
+
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(normalizedPayload),
       });
 
       const data = await response.json();
@@ -131,7 +170,7 @@ export default function AccountPage() {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                date: formData.date_time,
+                date: getDateInputValue(formData.date_time),
                 description: `${formData.name} Account Entry`,
                 type: "INCOME",
                 amount: paidAmount,
@@ -195,24 +234,14 @@ export default function AccountPage() {
   });
 
   const handleEdit = (account) => {
-    // Format date for the HTML date input (YYYY-MM-DD) in local time
-    let formattedDate = "";
-    if (account.date_time) {
-      const d = new Date(account.date_time);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      formattedDate = `${year}-${month}-${day}`;
-    }
-
     setEditingAccount(account);
     setFormData({
       number_series: account.number_series || "",
       name: account.name,
       phone_no: account.phone_no,
       status: account.status,
-      date_time: formattedDate,
-      due_date: account.due_date || "",
+      date_time: getDateInputValue(account.date_time),
+      due_date: getDateInputValue(account.due_date),
       payment_type: account.payment_type,
       pending_amount: account.pending_amount || "",
       complete_amount: account.complete_amount || "",
@@ -388,20 +417,21 @@ export default function AccountPage() {
   };
 
   const getDueDateInfo = (dueDate) => {
-    if (!dueDate) {
+    const parsedDueDate = getComparableDate(dueDate);
+
+    if (!parsedDueDate) {
       return { label: "No due date", tone: "text-gray-500", badge: "bg-gray-100 text-gray-600" };
     }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const due = new Date(dueDate);
-    if (Number.isNaN(due.getTime())) {
+    if (Number.isNaN(parsedDueDate.getTime())) {
       return { label: "Invalid date", tone: "text-gray-500", badge: "bg-gray-100 text-gray-600" };
     }
 
-    due.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+    parsedDueDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((parsedDueDate - today) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
       return {
@@ -423,8 +453,13 @@ export default function AccountPage() {
   };
 
   const sortedAccounts = [...filteredAccounts].sort((a, b) => {
-    const aDate = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
-    const bDate = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
+    const aDate = getComparableDate(a.due_date);
+    const bDate = getComparableDate(b.due_date);
+
+    if (!aDate && !bDate) return 0;
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+
     return aDate - bDate;
   });
 
@@ -655,7 +690,7 @@ export default function AccountPage() {
                           return (
                             <div className="flex flex-col gap-1">
                               <span className={`inline-flex w-fit px-2 py-1 text-[11px] font-semibold rounded-full ${dueInfo.badge}`}>
-                                {account.due_date ? new Date(account.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
+                                {formatDisplayDate(account.due_date)}
                               </span>
                               <span className={`text-[11px] font-medium ${dueInfo.tone}`}>
                                 {dueInfo.label}
@@ -743,7 +778,7 @@ export default function AccountPage() {
                                   </div>
                                   <div>
                                     <p className="text-xs text-gray-500">Due Date</p>
-                                    <p className="font-medium text-gray-900">{account.due_date ? new Date(account.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}</p>
+                                    <p className="font-medium text-gray-900">{formatDisplayDate(account.due_date)}</p>
                                   </div>
                                 </div>
                               </div>

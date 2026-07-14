@@ -604,7 +604,9 @@ export default function GSTPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No.</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Company Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">User ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Password</th>
                 </tr>
               ) : (
                 <tr>
@@ -645,6 +647,31 @@ export default function GSTPage() {
                             <a href={`tel:${gst.phone_no}`} className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium">
                               {gst.phone_no}
                             </a>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{formatDisplayText(gst.company_name, "-")}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyValue(gst.user_id, "User ID");
+                              }}
+                              className="font-medium text-gray-900 hover:text-blue-600 underline-offset-2 hover:underline text-left"
+                            >
+                              {gst.user_id || "-"}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyValue(gst.password, "Password");
+                              }}
+                              className="font-medium text-gray-900 hover:text-blue-600 underline-offset-2 hover:underline text-left"
+                            >
+                              {gst.password || "-"}
+                            </button>
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <div className="flex gap-2">
@@ -692,7 +719,7 @@ export default function GSTPage() {
                     })
                     .map((gst, index) => {
                       const rowBgClass = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
-                      const hasTags = statusFilter === "ALL" && isTaskWindowOpen() && isGSTTaskCompleted(gst);
+                      const hasTags = statusFilter === "ALL" && isTaskWindowOpen() && (isGSTR1Completed(gst) || isGSTR3BCompleted(gst));
                       return (
                         <React.Fragment key={gst.id}>
                           <tr

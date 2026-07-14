@@ -2,6 +2,20 @@ import { db } from '../../../lib/firebase';
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
+const normalizeDateValue = (value) => {
+  if (!value) return null;
+
+  const rawValue = value instanceof Date ? value : String(value).trim();
+  if (!rawValue) return null;
+
+  const rawDate = rawValue instanceof Date ? rawValue.toISOString() : rawValue;
+  const datePart = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
+  const [year, month, day] = datePart.split('-').map(Number);
+
+  if (!year || !month || !day) return null;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
 // GET all Account records
 export async function GET() {
   try {
@@ -44,6 +58,8 @@ export async function POST(request) {
     const finalStatus = normalizedStatus === 'RECEIPT'
       ? normalizedStatus
       : (parseFloat(pending_amount) >= parseFloat(complete_amount) && parseFloat(complete_amount) > 0) ? 'COMPLETE' : normalizedStatus;
+    const normalizedDateTime = normalizeDateValue(date_time);
+    const normalizedDueDate = normalizeDateValue(due_date);
 
     const newAccountRef = doc(collection(db, 'accounts'));
     const newAccount = {
@@ -51,8 +67,8 @@ export async function POST(request) {
       name: name || '',
       phone_no: phone_no || '',
       status: finalStatus || '',
-      date_time: date_time || null,
-      due_date: due_date || null,
+      date_time: normalizedDateTime || null,
+      due_date: normalizedDueDate || null,
       pending_amount: pending_amount || 0,
       complete_amount: complete_amount || 0,
       reference_name: reference_name || '',
@@ -100,13 +116,16 @@ export async function PUT(request) {
       return NextResponse.json({ success: false, message: 'ID is required' }, { status: 400 });
     }
 
+    const normalizedDateTime = normalizeDateValue(date_time);
+    const normalizedDueDate = normalizeDateValue(due_date);
+
     const updateData = {
       number_series: number_series || "",
       name: name || '',
       phone_no: phone_no || '',
       status: status || '',
-      date_time: date_time || null,
-      due_date: due_date || null,
+      date_time: normalizedDateTime || null,
+      due_date: normalizedDueDate || null,
       pending_amount: pending_amount || 0,
       complete_amount: complete_amount || 0,
       reference_name: reference_name || '',
