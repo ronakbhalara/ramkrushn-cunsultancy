@@ -686,7 +686,7 @@ export default function GSTPage() {
                               {!isGSTR3BCompleted(gst) && (
                                 <button
                                   onClick={() => handleTaskComplete(gst.id, 'GSTR-3B')}
-                                  className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors border border-green-300"
+                                  className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 font-medium transition-colors border border-yellow-300"
                                 >
                                   GSTR-3B
                                 </button>
