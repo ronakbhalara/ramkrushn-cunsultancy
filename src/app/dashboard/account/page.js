@@ -416,7 +416,11 @@ export default function AccountPage() {
     return parseFloat(amount).toFixed(2);
   };
 
-  const getDueDateInfo = (dueDate) => {
+  const getDueDateInfo = (dueDate, status) => {
+    if (String(status || '').trim().toUpperCase() === 'COMPLETE') {
+      return { label: "", tone: "text-gray-400", badge: "bg-transparent text-gray-400" };
+    }
+
     const parsedDueDate = getComparableDate(dueDate);
 
     if (!parsedDueDate) {
@@ -686,7 +690,10 @@ export default function AccountPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {(() => {
-                          const dueInfo = getDueDateInfo(account.due_date);
+                          const dueInfo = getDueDateInfo(account.due_date, account.status);
+                          if (String(account.status || '').trim().toUpperCase() === 'COMPLETE') {
+                            return <span className="text-gray-400 text-xs">-</span>;
+                          }
                           return (
                             <div className="flex flex-col gap-1">
                               <span className={`inline-flex w-fit px-2 py-1 text-[11px] font-semibold rounded-full ${dueInfo.badge}`}>
