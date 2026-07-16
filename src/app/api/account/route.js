@@ -1,6 +1,7 @@
 import { db } from '../../../lib/firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
+import { resolveAccountStatus } from '../../../lib/accountStatus.mjs';
 
 const normalizeDateValue = (value) => {
   if (!value) return null;
@@ -54,10 +55,11 @@ export async function POST(request) {
     // });
     // const number_series = String(maxNum + 1).padStart(3, '0');
 
-    const normalizedStatus = String(status || '').trim().toUpperCase();
-    const finalStatus = normalizedStatus === 'RECEIPT'
-      ? normalizedStatus
-      : (parseFloat(pending_amount) >= parseFloat(complete_amount) && parseFloat(complete_amount) > 0) ? 'COMPLETE' : normalizedStatus;
+    const finalStatus = resolveAccountStatus({
+      status,
+      pendingAmount: pending_amount,
+      completeAmount: complete_amount,
+    });
     const normalizedDateTime = normalizeDateValue(date_time);
     const normalizedDueDate = normalizeDateValue(due_date);
 
@@ -118,12 +120,17 @@ export async function PUT(request) {
 
     const normalizedDateTime = normalizeDateValue(date_time);
     const normalizedDueDate = normalizeDateValue(due_date);
+    const finalStatus = resolveAccountStatus({
+      status,
+      pendingAmount: pending_amount,
+      completeAmount: complete_amount,
+    });
 
     const updateData = {
       number_series: number_series || "",
       name: name || '',
       phone_no: phone_no || '',
-      status: status || '',
+      status: finalStatus || '',
       date_time: normalizedDateTime || null,
       due_date: normalizedDueDate || null,
       pending_amount: pending_amount || 0,

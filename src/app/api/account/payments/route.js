@@ -1,6 +1,7 @@
 import { db } from '../../../../lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, setDoc, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
+import { resolveAccountStatus } from '../../../../lib/accountStatus.mjs';
 
 // GET payments for a specific account
 export async function GET(request) {
@@ -70,7 +71,11 @@ export async function POST(request) {
     await setDoc(paymentRef, paymentData);
 
     // 3. Update account total paid and status
-    const newStatus = (newPaidAmount >= totalAmount && totalAmount > 0) ? 'COMPLETE' : 'RECEIPT';
+    const newStatus = resolveAccountStatus({
+      status: accountData.status,
+      pendingAmount: newPaidAmount,
+      completeAmount: totalAmount,
+    });
     await updateDoc(accountRef, {
       pending_amount: newPaidAmount,
       status: newStatus,
@@ -147,7 +152,11 @@ export async function PUT(request) {
       updated_at: new Date().toISOString()
     });
 
-    const newStatus = (adjustedPaidAmount >= totalAmount && totalAmount > 0) ? 'COMPLETE' : 'RECEIPT';
+    const newStatus = resolveAccountStatus({
+      status: accountData.status,
+      pendingAmount: adjustedPaidAmount,
+      completeAmount: totalAmount,
+    });
     await updateDoc(accountRef, {
       pending_amount: adjustedPaidAmount,
       status: newStatus,

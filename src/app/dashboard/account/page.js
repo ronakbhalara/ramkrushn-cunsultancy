@@ -68,6 +68,11 @@ export default function AccountPage() {
     return new Date(year, month - 1, day);
   };
 
+  const getNormalizedSeries = (series) => {
+    if (!series) return "";
+    return String(series).trim().toUpperCase();
+  };
+
   const formatDisplayDate = (value) => {
     const parsedDate = getComparableDate(value);
     if (!parsedDate) return "-";
@@ -78,10 +83,6 @@ export default function AccountPage() {
       year: "numeric",
     });
   };
-
-  useEffect(() => {
-    fetchAccountRecords();
-  }, []);
 
   const fetchAccountRecords = async () => {
     try {
@@ -97,19 +98,26 @@ export default function AccountPage() {
     }
   };
 
+  useEffect(() => {
+    const loadAccountRecords = async () => {
+      try {
+        const response = await fetch("/api/account");
+        const data = await response.json();
+        if (data.success) {
+          setAccountRecords(data.data);
+        }
+      } catch (error) {
+        toast.error("Failed to fetch Account records");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAccountRecords();
+  }, []);
+
   const validateForm = () => {
     const newErrors = {};
-
-    // Name validation
-    if (!formData.name || formData.name.trim() === "") {
-      newErrors.name = "Name is required";
-    }
-
-    // Phone validation (Indian format: +91 followed by 10 digits or 10 digits)
-    const phoneRegex = /^(\+91)?[6-9]\d{9}$/;
-    if (!phoneRegex.test(formData.phone_no)) {
-      newErrors.phone_no = "Please enter a valid Indian phone number (e.g., +919876543210 or 9876543210)";
-    }
 
     // Status validation
     if (!formData.status) {
@@ -179,10 +187,11 @@ export default function AccountPage() {
           }
         }
 
-        toast.success(
-          editingAccount
+        toast.success(data.message ||
+          (editingAccount
             ? "Account record updated successfully!"
             : "Account record added successfully!"
+          )
         );
 
         resetForm();
@@ -197,7 +206,7 @@ export default function AccountPage() {
   };
 
   const filteredAccounts = accountRecords.filter((account) => {
-    const series = (account.number_series || "").trim().toUpperCase();
+    const series = getNormalizedSeries(account.number_series);
 
     // Module Filter
     if (moduleFilter !== "All") {
@@ -232,6 +241,20 @@ export default function AccountPage() {
 
     return true;
   });
+
+  const groupedAccountEntries = Object.entries(filteredAccounts.reduce((groups, account) => {
+    const series = getNormalizedSeries(account.number_series) || "UNASSIGNED";
+    if (!groups[series]) groups[series] = [];
+    groups[series].push(account);
+    return groups;
+  }, {}))
+    .map(([series, accounts]) => ({
+      series,
+      accounts,
+      totalComplete: accounts.reduce((sum, acct) => sum + parseFloat(acct.complete_amount || 0), 0),
+      totalPending: accounts.reduce((sum, acct) => sum + parseFloat(acct.pending_amount || 0), 0),
+    }))
+    .sort((a, b) => a.series.localeCompare(b.series, undefined, { numeric: true, sensitivity: 'base' }));
 
   const handleEdit = (account) => {
     setEditingAccount(account);
@@ -643,245 +666,254 @@ export default function AccountPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {sortedAccounts.length === 0 ? (
+              {groupedAccountEntries.length === 0 ? (
                 <tr>
                   <td
                     colSpan="7"
                     className="px-4 py-8 text-center text-gray-500"
                   >
-                    No {statusFilter.toLowerCase()} account records found. Click "Add New Account" to get started.
+                    No {statusFilter.toLowerCase()} account records found. Click &quot;Add New Account&quot; to get started.
                   </td>
                 </tr>
               ) : (
-                sortedAccounts.map((account) => (
-                  <React.Fragment key={account.id}>
-                    <tr
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => toggleAccountDetails(account.id)}
-                    >
-                      <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
-                        {account.number_series}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-bold text-gray-700">
-                        {formatDisplayText(account.name, "-")}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        <a
-                          href={`tel:${account.phone_no}`}
-                          className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {account.phone_no}
-                        </a>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-full ${account.status === "PAYMENT"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : account.status === "RECEIPT"
-                              ? "bg-blue-100 text-blue-800"
-                              : account.status === "COMPLETE"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                        >
-                          {account.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {(() => {
-                          const dueInfo = getDueDateInfo(account.due_date, account.status);
-                          if (String(account.status || '').trim().toUpperCase() === 'COMPLETE') {
-                            return <span className="text-gray-400 text-xs">-</span>;
-                          }
-                          return (
-                            <div className="flex flex-col gap-1">
-                              <span className={`inline-flex w-fit px-2 py-1 text-[11px] font-semibold rounded-full ${dueInfo.badge}`}>
-                                {formatDisplayDate(account.due_date)}
-                              </span>
-                              <span className={`text-[11px] font-medium ${dueInfo.tone}`}>
-                                {dueInfo.label}
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
-                          ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={(e) => handleOpenPaymentModal(e, account)}
-                            className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors"
-                          >
-                            Paid
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(account);
-                            }}
-                            className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(account.id);
-                            }}
-                            className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                groupedAccountEntries.map((group) => (
+                  <React.Fragment key={group.series}>
+                    <tr className="bg-[#f9f6ef] border-t border-b border-[#dfc797]">
+                      <td colSpan="7" className="px-4 py-3 text-sm font-semibold text-[#17312d]">
+                        Series: {group.series} • Accounts: {group.accounts.length} • Total Paid: ₹{formatAmount(group.totalPending)} • Total Amount: ₹{formatAmount(group.totalComplete)} • Remaining: ₹{formatAmount(group.totalComplete - group.totalPending)}
                       </td>
                     </tr>
-                    {account.note && (
-                      <tr
-                        className={`cursor-pointer transition-colors`}
-                        onClick={() => toggleLoanDetails(account.id)}
-                      >
-                        <td colSpan="7" className="px-4 pb-3 pt-1 text-xs">
-                          <span className="font-bold text-gray-900">Note: </span>
-                          <span className="font-semibold text-gray-800">{formatDisplayText(account.note, "-")}</span>
-                        </td>
-                      </tr>
-                    )}
-                    {expandedAccount === account.id && (
-                      <tr className="animate-in slide-in-from-top-1 duration-300">
-                        <td colSpan="7" className="px-0 py-0">
-                          <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                              {/* Personal Information */}
-                              <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
-                                <div className="space-y-2">
-                                  <div>
-                                    <p className="text-xs text-gray-500">Name</p>
-                                    <p className="font-medium text-gray-900">{formatDisplayText(account.name, "-")}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">Phone</p>
-                                    <p className="font-medium text-gray-900">{account.phone_no}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">Status</p>
-                                    <span
-                                      className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${account.status === "PAYMENT"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : account.status === "RECEIPT"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : account.status === "COMPLETE"
-                                            ? "bg-green-100 text-green-800"
-                                            : "bg-gray-100 text-gray-800"
-                                        }`}
-                                    >
-                                      {account.status}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">Due Date</p>
-                                    <p className="font-medium text-gray-900">{formatDisplayDate(account.due_date)}</p>
-                                  </div>
+                    {group.accounts.map((account) => (
+                      <React.Fragment key={account.id}>
+                        <tr
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => toggleAccountDetails(account.id)}
+                        >
+                          <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
+                            {account.number_series}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-bold text-gray-700">
+                            {formatDisplayText(account.name, "-")}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            <a
+                              href={`tel:${account.phone_no}`}
+                              className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {account.phone_no}
+                            </a>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-1 text-xs font-semibold rounded-full ${account.status === "PAYMENT"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : account.status === "RECEIPT"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : account.status === "COMPLETE"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`}
+                            >
+                              {account.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {(() => {
+                              const dueInfo = getDueDateInfo(account.due_date, account.status);
+                              if (String(account.status || '').trim().toUpperCase() === 'COMPLETE') {
+                                return <span className="text-gray-400 text-xs">-</span>;
+                              }
+                              return (
+                                <div className="flex flex-col gap-1">
+                                  <span className={`inline-flex w-fit px-2 py-1 text-[11px] font-semibold rounded-full ${dueInfo.badge}`}>
+                                    {formatDisplayDate(account.due_date)}
+                                  </span>
+                                  <span className={`text-[11px] font-medium ${dueInfo.tone}`}>
+                                    {dueInfo.label}
+                                  </span>
                                 </div>
-                              </div>
-
-                              {/* Amount Information */}
-                              <div className="animate-in fade-in-50 duration-500 delay-300">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Amount Information</h4>
-                                <div className="space-y-2">
-                                  <div>
-                                    <p className="text-xs text-gray-500">Paid Amount</p>
-                                    <p className="font-medium text-gray-900">₹{formatAmount(account.pending_amount)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">Complete Amount</p>
-                                    <p className="font-medium text-gray-900">₹{formatAmount(account.complete_amount)}</p>
-                                  </div>
-                                  <div className="pt-1 border-t border-gray-200">
-                                    <p className="text-xs text-gray-500">Remaining Amount</p>
-                                    <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
-                                      ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">Reminder</p>
-                                    <p className={`font-medium ${getDueDateInfo(account.due_date).tone}`}>
-                                      {getDueDateInfo(account.due_date).label}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Reference Information */}
-                              <div className="animate-in fade-in-50 duration-500 delay-300">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
-                                <div className="space-y-2">
-                                  <div>
-                                    <p className="text-xs text-gray-500">Reference Name</p>
-                                    <p className="font-medium text-gray-900">{account.reference_name || "-"}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500">Reference Phone</p>
-                                    <p className="font-medium text-gray-900">{account.reference_phone || "-"}</p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Payment History */}
-                              <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-4 animate-in fade-in-50 duration-500 delay-400">
-                                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 border-t pt-4">Payment History</h4>
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-sm text-left text-gray-500">
-                                    <thead className="text-xs text-gray-700 uppercase bg-gray-100">
-                                      <tr>
-                                        <th className="px-4 py-2">Date</th>
-                                        <th className="px-4 py-2">Amount</th>
-                                        <th className="px-4 py-2">Payment Type</th>
-                                        <th className="px-4 py-2">Note</th>
-                                        <th className="px-4 py-2">Actions</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {paymentHistory[account.id] && paymentHistory[account.id].length > 0 ? (
-                                        paymentHistory[account.id].map((payment) => (
-                                          <tr key={payment.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-2">{formatDateTime(payment.payment_date)}</td>
-                                            <td className="px-4 py-2 font-medium text-gray-900">₹{formatAmount(payment.amount)}</td>
-                                            <td className="px-4 py-2 text-xs font-semibold">
-                                              <span className={`px-2 py-1 rounded-full ${payment.payment_type === 'CASH' ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}`}>
-                                                {payment.payment_type}
-                                              </span>
-                                            </td>
-                                            <td className="px-4 py-2">{payment.note || "-"}</td>
-                                            <td className="px-4 py-2">
-                                              <button
-                                                onClick={(e) => handleOpenPaymentModal(e, account, payment)}
-                                                className="text-blue-600 hover:text-blue-800 font-medium"
-                                              >
-                                                Edit
-                                              </button>
-                                            </td>
-                                          </tr>
-                                        ))
-                                      ) : (
-                                        <tr>
-                                          <td colSpan="5" className="px-4 py-4 text-center text-gray-400">No payment records found.</td>
-                                        </tr>
-                                      )}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
+                              );
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                              ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => handleOpenPaymentModal(e, account)}
+                                className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors"
+                              >
+                                Paid
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(account);
+                                }}
+                                className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(account.id);
+                                }}
+                                className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
+                              >
+                                Delete
+                              </button>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                          </td>
+                        </tr>
+                        {account.note && (
+                          <tr
+                            className={`cursor-pointer transition-colors`}
+                            onClick={() => toggleLoanDetails(account.id)}
+                          >
+                            <td colSpan="7" className="px-4 pb-3 pt-1 text-xs">
+                              <span className="font-bold text-gray-900">Note: </span>
+                              <span className="font-semibold text-gray-800">{formatDisplayText(account.note, "-")}</span>
+                            </td>
+                          </tr>
+                        )}
+                        {expandedAccount === account.id && (
+                          <tr className="animate-in slide-in-from-top-1 duration-300">
+                            <td colSpan="7" className="px-0 py-0">
+                              <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                  {/* Personal Information */}
+                                  <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
+                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-xs text-gray-500">Name</p>
+                                        <p className="font-medium text-gray-900">{formatDisplayText(account.name, "-")}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Phone</p>
+                                        <p className="font-medium text-gray-900">{account.phone_no}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Status</p>
+                                        <span
+                                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${account.status === "PAYMENT"
+                                            ? "bg-yellow-100 text-yellow-800"
+                                            : account.status === "RECEIPT"
+                                              ? "bg-blue-100 text-blue-800"
+                                              : account.status === "COMPLETE"
+                                                ? "bg-green-100 text-green-800"
+                                                : "bg-gray-100 text-gray-800"
+                                            }`}
+                                        >
+                                          {account.status}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Due Date</p>
+                                        <p className="font-medium text-gray-900">{formatDisplayDate(account.due_date)}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Amount Information */}
+                                  <div className="animate-in fade-in-50 duration-500 delay-300">
+                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Amount Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-xs text-gray-500">Paid Amount</p>
+                                        <p className="font-medium text-gray-900">₹{formatAmount(account.pending_amount)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Complete Amount</p>
+                                        <p className="font-medium text-gray-900">₹{formatAmount(account.complete_amount)}</p>
+                                      </div>
+                                      <div className="pt-1 border-t border-gray-200">
+                                        <p className="text-xs text-gray-500">Remaining Amount</p>
+                                        <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                                          ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Reminder</p>
+                                        <p className={`font-medium ${getDueDateInfo(account.due_date).tone}`}>
+                                          {getDueDateInfo(account.due_date).label}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Reference Information */}
+                                  <div className="animate-in fade-in-50 duration-500 delay-300">
+                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-xs text-gray-500">Reference Name</p>
+                                        <p className="font-medium text-gray-900">{account.reference_name || "-"}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">Reference Phone</p>
+                                        <p className="font-medium text-gray-900">{account.reference_phone || "-"}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Payment History */}
+                                  <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-4 animate-in fade-in-50 duration-500 delay-400">
+                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 border-t pt-4">Payment History</h4>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-sm text-left text-gray-500">
+                                        <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                                          <tr>
+                                            <th className="px-4 py-2">Date</th>
+                                            <th className="px-4 py-2">Amount</th>
+                                            <th className="px-4 py-2">Payment Type</th>
+                                            <th className="px-4 py-2">Note</th>
+                                            <th className="px-4 py-2">Actions</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {paymentHistory[account.id] && paymentHistory[account.id].length > 0 ? (
+                                            paymentHistory[account.id].map((payment) => (
+                                              <tr key={payment.id} className="bg-white border-b hover:bg-gray-50">
+                                                <td className="px-4 py-2">{formatDateTime(payment.payment_date)}</td>
+                                                <td className="px-4 py-2 font-medium text-gray-900">₹{formatAmount(payment.amount)}</td>
+                                                <td className="px-4 py-2 text-xs font-semibold">
+                                                  <span className={`px-2 py-1 rounded-full ${payment.payment_type === 'CASH' ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}`}>
+                                                    {payment.payment_type}
+                                                  </span>
+                                                </td>
+                                                <td className="px-4 py-2">{payment.note || "-"}</td>
+                                                <td className="px-4 py-2">
+                                                  <button
+                                                    onClick={(e) => handleOpenPaymentModal(e, account, payment)}
+                                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                                  >
+                                                    Edit
+                                                  </button>
+                                                </td>
+                                              </tr>
+                                            ))
+                                          ) : (
+                                            <tr>
+                                              <td colSpan="5" className="px-4 py-4 text-center text-gray-400">No payment records found.</td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
                   </React.Fragment>
                 ))
               )}
@@ -892,7 +924,7 @@ export default function AccountPage() {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-60 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6">
             <h2 className="text-xl font-bold text-[#1c3430] mb-4">
               {isEditingPayment ? "Edit Payment" : "Record Payment"}
