@@ -242,20 +242,62 @@ export default function AccountPage() {
     return true;
   });
 
-  const groupedAccountEntries = Object.entries(filteredAccounts.reduce((groups, account) => {
-    const series = getNormalizedSeries(account.number_series) || "UNASSIGNED";
-    if (!groups[series]) groups[series] = [];
-    groups[series].push(account);
-    return groups;
-  }, {}))
+  const groupedAccountEntries = Object.entries(
+    filteredAccounts.reduce((groups, account) => {
+      const series = getNormalizedSeries(account.number_series) || "UNASSIGNED";
+
+      if (!groups[series]) groups[series] = [];
+      groups[series].push(account);
+
+      return groups;
+    }, {})
+  )
     .map(([series, accounts]) => ({
       series,
-      accounts,
-      totalComplete: accounts.reduce((sum, acct) => sum + parseFloat(acct.complete_amount || 0), 0),
-      totalPending: accounts.reduce((sum, acct) => sum + parseFloat(acct.pending_amount || 0), 0),
-    }))
-    .sort((a, b) => a.series.localeCompare(b.series, undefined, { numeric: true, sensitivity: 'base' }));
+      accounts: [...accounts].sort((a, b) => {
+        // COMPLETE entry છેલ્લે બતાવો
+        if (a.status === "COMPLETE" && b.status !== "COMPLETE") return 1;
+        if (a.status !== "COMPLETE" && b.status === "COMPLETE") return -1;
 
+        const aDate = getComparableDate(a.due_date);
+        const bDate = getComparableDate(b.due_date);
+
+        // જેની Due Date નથી તેને છેલ્લે બતાવો
+        if (!aDate && !bDate) return 0;
+        if (!aDate) return 1;
+        if (!bDate) return -1;
+
+        // સૌથી નજીકની Due Date સૌથી ઉપર
+        return aDate - bDate;
+      }),
+      totalComplete: accounts.reduce(
+        (sum, acct) => sum + parseFloat(acct.complete_amount || 0),
+        0
+      ),
+      totalPending: accounts.reduce(
+        (sum, acct) => sum + parseFloat(acct.pending_amount || 0),
+        0
+      ),
+    }))
+    .sort((a, b) => {
+      const getNearestDueDate = (accounts) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dates = accounts
+          .filter(acc => String(acc.status).toUpperCase() !== "COMPLETE")
+          .map(acc => getComparableDate(acc.due_date))
+          .filter(Boolean);
+
+        if (!dates.length) return Number.MAX_SAFE_INTEGER;
+
+        return Math.min(
+          ...dates.map(date => Math.abs(date.getTime() - today.getTime()))
+        );
+      };
+
+      return getNearestDueDate(a.accounts) - getNearestDueDate(b.accounts);
+    });
   const handleEdit = (account) => {
     setEditingAccount(account);
     setFormData({
