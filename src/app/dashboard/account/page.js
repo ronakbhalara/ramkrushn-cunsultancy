@@ -551,13 +551,43 @@ export default function AccountPage() {
       {/* Detailed Layer View */}
       {currentSelectedGroup ? (
         <div className="bg-white rounded-xl shadow-md p-6 animate-in fade-in duration-300">
+          {/* Detailed Layer View Header */}
           <div className="flex justify-between items-center mb-6 pb-4 border-b">
-            <button
-              onClick={() => setSelectedSeriesGroup(null)}
-              className="flex items-center gap-2 bg-[#dfc797] text-[#17312d] px-4 py-2 rounded-lg font-bold hover:bg-[#f0d9ae] transition-colors shadow-sm"
-            >
-              ← Back to List
-            </button>
+            {/* Left Side Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSelectedSeriesGroup(null)}
+                className="flex items-center gap-2 bg-[#dfc797] text-[#17312d] px-4 py-2 rounded-lg font-bold hover:bg-[#f0d9ae] transition-colors shadow-sm"
+              >
+                ← Back to List
+              </button>
+
+              {/* 🔥 New Add Button inside Detail View */}
+              <button
+                onClick={() => {
+                  setFormData({
+                    number_series: currentSelectedGroup.seriesNumber || "",
+                    name: currentSelectedGroup.name || "",
+                    phone_no: currentSelectedGroup.phone_no || "",
+                    status: "RECEIPT",
+                    date_time: new Date().toISOString().split('T')[0],
+                    due_date: "",
+                    payment_type: "",
+                    pending_amount: "",
+                    complete_amount: "",
+                    reference_name: currentSelectedGroup.records?.[0]?.reference_name || "",
+                    reference_phone: currentSelectedGroup.records?.[0]?.reference_phone || "",
+                    note: "",
+                  });
+                  setEditingAccount(null);
+                  setShowForm(true);
+                }}
+                className="px-4 py-2 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors shadow-sm"
+              >
+                Add
+              </button>
+            </div>
+
             <div className="text-right">
               <h2 className="text-xl font-bold text-[#17312d]">
                 Series Number: <span className="text-blue-700">{currentSelectedGroup.seriesNumber}</span>
@@ -615,11 +645,9 @@ export default function AccountPage() {
                       const aIsComplete = String(a.status || '').trim().toUpperCase() === 'COMPLETE';
                       const bIsComplete = String(b.status || '').trim().toUpperCase() === 'COMPLETE';
 
-                      // 1. COMPLETE એન્ટ્રીઓને સૌથી છેલ્લે મોકલવા માટે
                       if (aIsComplete && !bIsComplete) return 1;
                       if (!aIsComplete && bIsComplete) return -1;
 
-                      // 2. પેન્ડિંગ એન્ટ્રીઓને Due Date મુજબ સોર્ટ કરવા માટે
                       const dateA = getComparableDate(a.due_date);
                       const dateB = getComparableDate(b.due_date);
 
@@ -689,13 +717,47 @@ export default function AccountPage() {
 
                           {paymentHistory[acc.id] && paymentHistory[acc.id].length > 0 && (
                             <tr>
-                              <td colSpan="9" className="px-6 py-2 bg-gray-50 border-t border-b">
-                                <div className="text-xs">
-                                  <span className="font-bold text-gray-700">Payment Breakdown ({formatDisplayDate(acc.date_time)}):</span>
-                                  <div className="flex gap-4 mt-1 flex-wrap">
+                              <td colSpan="8" className="px-6 py-3 bg-gray-50/80 border-t border-b">
+                                <div className="text-xs space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-700 tracking-wide uppercase text-[11px]">
+                                      Payment Breakdown ({formatDisplayDate(acc.date_time)})
+                                    </span>
+                                    <span className="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
+                                      {paymentHistory[acc.id].length}
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 mt-1">
                                     {paymentHistory[acc.id].map((p) => (
-                                      <div key={p.id} className="bg-white px-3 py-1 rounded border border-gray-200 text-gray-700">
-                                        {formatDateTime(p.payment_date)} - <strong className="text-green-700">₹{formatAmount(p.amount)}</strong> ({p.payment_type})
+                                      <div
+                                        key={p.id}
+                                        className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm flex flex-col justify-between space-y-1 hover:border-gray-300 transition-colors"
+                                      >
+                                        {/* Payment Info */}
+                                        <div className="flex justify-between items-center text-xs">
+                                          <span className="text-gray-500 font-medium">
+                                            {formatDateTime(p.payment_date)}
+                                          </span>
+                                          <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 font-semibold text-[10px] rounded uppercase">
+                                            {p.payment_type}
+                                          </span>
+                                        </div>
+
+                                        {/* Amount */}
+                                        <div className="text-sm font-bold text-green-700">
+                                          ₹{formatAmount(p.amount)}
+                                        </div>
+
+                                        {/* Single Line Payment Note with Hover Tooltip */}
+                                        {p.note && (
+                                          <div
+                                            title={p.note}
+                                            className="pt-1 mt-1 border-t border-gray-100 text-[13px] text-gray-600 truncate cursor-pointer"
+                                          >
+                                            <span className="font-semibold text-gray-500">Note:</span> {p.note}
+                                          </div>
+                                        )}
                                       </div>
                                     ))}
                                   </div>
@@ -704,13 +766,14 @@ export default function AccountPage() {
                             </tr>
                           )}
 
-                          <tr>
-                            {acc.note && (
+                          {/* // ✅ Corrected Code: */}
+                          {acc.note && (
+                            <tr>
                               <td colSpan="9" className="px-6 py-2 bg-gray-50 border-t text-gray-800 text-sm">
                                 <span className="font-semibold">Note:</span> {acc.note}
                               </td>
-                            )}
-                          </tr>
+                            </tr>
+                          )}
                         </React.Fragment>
                       );
                     })}

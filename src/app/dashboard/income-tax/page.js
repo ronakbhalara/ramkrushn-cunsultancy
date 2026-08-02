@@ -574,7 +574,7 @@ export default function IncomeTaxPage() {
                             <button
                               type="button"
                               onClick={(e) => handleCopyPan(e, incomeTax.pan_card_no)}
-                              className="font-mono text-xs text-[#17312d] hover:text-[#dfc797] hover:underline focus:outline-none inline-flex items-center gap-1.5 group font-medium"
+                              className="font-mono text-sm text-[#17312d] hover:text-[#dfc797] hover:underline focus:outline-none inline-flex items-center gap-1.5 group font-medium"
                               title="Click to Copy PAN"
                             >
                               <span>{incomeTax.pan_card_no.toUpperCase()}</span>

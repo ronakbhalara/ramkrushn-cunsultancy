@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
 export default function AccountForm({
@@ -26,6 +26,12 @@ export default function AccountForm({
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
+
+  useEffect(() => {
+    if (formData.number_series) {
+      setSeriesNumber(formData.number_series);
+    }
+  }, [formData.number_series]);
 
   const handleSeriesSearch = async () => {
     if (!seriesNumber.trim()) {
