@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import AccountForm from "../../../components/AccountForm";
 import { formatDisplayText } from "../../../utils/formatText";
+import { Edit, EditIcon } from "lucide-react";
 
 export default function AccountPage() {
   const [accountRecords, setAccountRecords] = useState([]);
@@ -745,8 +746,18 @@ export default function AccountPage() {
                                         </div>
 
                                         {/* Amount */}
-                                        <div className="text-sm font-bold text-green-700">
-                                          ₹{formatAmount(p.amount)}
+                                        <div className="flex justify-between items-center">
+                                          <div className="text-sm font-bold text-green-700">
+                                            ₹{formatAmount(p.amount)}
+                                          </div>
+
+                                          {/* Actions */}
+                                          <button
+                                            onClick={(e) => handleOpenPaymentModal(e, acc, p)}
+                                            className="px-2 py-1 text-[11px] bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 font-semibold"
+                                          >
+                                            <EditIcon className="w-3.5 h-3.5" />
+                                          </button>
                                         </div>
 
                                         {/* Single Line Payment Note with Hover Tooltip */}
