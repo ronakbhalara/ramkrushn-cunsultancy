@@ -54,26 +54,30 @@ export default function IncomeTaxPage() {
     }
   };
 
+  // PAN kopy karva mate handler function
+  const handleCopyPan = (e, panNo) => {
+    e.stopPropagation();
+    if (!panNo) return;
+    navigator.clipboard.writeText(panNo.toUpperCase());
+    toast.success(`PAN ${panNo.toUpperCase()} copied!`);
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
-    // Name validation
     if (!formData.name || formData.name.trim() === "") {
       newErrors.name = "Name is required";
     }
 
-    // Phone validation (Indian format: +91 followed by 10 digits or 10 digits)
     const phoneRegex = /^(\+91)?[6-9]\d{9}$/;
     if (!phoneRegex.test(formData.phone_no)) {
       newErrors.phone_no = "Please enter a valid Indian phone number (e.g., +919876543210 or 9876543210)";
     }
 
-    // Reference Phone validation (Indian format: +91 followed by 10 digits or 10 digits)
     if (formData.reference_phone && !phoneRegex.test(formData.reference_phone)) {
       newErrors.reference_phone = "Please enter a valid Indian phone number (e.g., +919876543210 or 9876543210)";
     }
 
-    // PAN Card validation (10 characters, first 5 letters, 4 numbers, 1 letter)
     if (formData.pan_card_no && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(formData.pan_card_no.trim())) {
       newErrors.pan_card_no = "Please enter a valid PAN card number";
     }
@@ -90,11 +94,9 @@ export default function IncomeTaxPage() {
     try {
       const formDataToSend = new FormData();
 
-      // Calculate default assessment year
       const getCurrentYear = new Date().getFullYear();
       const currentAssessmentYear = `${getCurrentYear}-${((getCurrentYear + 1) % 100).toString().padStart(2, '0')}`;
 
-      // Append all form fields
       Object.keys(formData).forEach(key => {
         if (key === 'assessment_year') {
           const years = formData.assessment_year && formData.assessment_year.length > 0
@@ -110,7 +112,6 @@ export default function IncomeTaxPage() {
         formDataToSend.append("id", editingIncomeTax.id);
       }
 
-      // Append selected files
       selectedFiles.forEach(file => {
         formDataToSend.append("files", file);
       });
@@ -237,7 +238,6 @@ export default function IncomeTaxPage() {
           reference_name: selectedIncomeTax.reference_name || "",
           reference_phone: selectedIncomeTax.reference_phone || "",
           note: `Income Tax Receipt for ${selectedIncomeTax.name || "customer"}`
-          // payment_note: `Receipt amount from Income Tax record`
         }),
       });
 
@@ -270,7 +270,6 @@ export default function IncomeTaxPage() {
         return "bg-purple-100 text-purple-800 border border-purple-200";
       case "close":
         return "bg-gray-100 text-gray-800 border border-gray-200";
-      case "document pending":
       case "document pending":
         return "bg-orange-100 text-orange-800 border border-orange-200";
       case "in-progress":
@@ -311,6 +310,7 @@ export default function IncomeTaxPage() {
     if (record.number_series && record.number_series.toString().toLowerCase().includes(query)) return true;
     if (record.name && record.name.toLowerCase().includes(query)) return true;
     if (record.phone_no && record.phone_no.toLowerCase().includes(query)) return true;
+    if (record.pan_card_no && record.pan_card_no.toLowerCase().includes(query)) return true;
 
     return false;
   };
@@ -328,7 +328,7 @@ export default function IncomeTaxPage() {
         return;
       }
 
-      const excelData = filteredData.map((record, index) => ({
+      const excelData = filteredData.map((record) => ({
         "NO.": record.number_series,
         "Name": record.name || "-",
         "Phone": record.phone_no || "-",
@@ -342,13 +342,11 @@ export default function IncomeTaxPage() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Income Tax");
 
-      // Set column widths
       const columnWidths = [
         { wch: 8 },  // NO.
         { wch: 20 }, // Name
         { wch: 15 }, // Phone
-        { wch: 12 }, // Status
-        { wch: 12 }, // Pan No
+        { wch: 15 }, // Pan No
         { wch: 15 }, // Password
         { wch: 18 }, // Reference Name
         { wch: 18 }, // Reference Phone
@@ -570,8 +568,20 @@ export default function IncomeTaxPage() {
                             {incomeTax.phone_no}
                           </a>
                         </td>
+                        {/* Clickable PAN No to Copy */}
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          {incomeTax.pan_card_no ? incomeTax.pan_card_no.toUpperCase() : "-"}
+                          {incomeTax.pan_card_no ? (
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyPan(e, incomeTax.pan_card_no)}
+                              className="font-mono text-xs text-[#17312d] hover:text-[#dfc797] hover:underline focus:outline-none inline-flex items-center gap-1.5 group font-medium"
+                              title="Click to Copy PAN"
+                            >
+                              <span>{incomeTax.pan_card_no.toUpperCase()}</span>
+                            </button>
+                          ) : (
+                            "-"
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStageChipClass(incomeTax.stage)}`}>
@@ -642,7 +652,19 @@ export default function IncomeTaxPage() {
                                     </div>
                                     <div>
                                       <p className="text-xs text-gray-500">PAN Card</p>
-                                      <p className="font-medium text-gray-900">{incomeTax.pan_card_no ? incomeTax.pan_card_no.toUpperCase() : "-"}</p>
+                                      {incomeTax.pan_card_no ? (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => handleCopyPan(e, incomeTax.pan_card_no)}
+                                          className="font-medium text-gray-900 hover:text-[#dfc797] hover:underline focus:outline-none inline-flex items-center gap-1 group font-mono"
+                                          title="Click to Copy PAN"
+                                        >
+                                          <span>{incomeTax.pan_card_no.toUpperCase()}</span>
+                                          <span className="text-xs opacity-50 group-hover:opacity-100">📋</span>
+                                        </button>
+                                      ) : (
+                                        <p className="font-medium text-gray-900">-</p>
+                                      )}
                                     </div>
                                     <div>
                                       <p className="text-xs text-gray-500">Password</p>

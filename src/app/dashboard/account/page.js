@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
@@ -12,7 +12,10 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
-  const [expandedAccount, setExpandedAccount] = useState(null);
+
+  // Selected Series for Layer View
+  const [selectedSeriesGroup, setSelectedSeriesGroup] = useState(null);
+
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentHistory, setPaymentHistory] = useState({});
@@ -48,14 +51,11 @@ export default function AccountPage() {
 
   const getDateInputValue = (value) => {
     if (!value) return "";
-
     const rawValue = typeof value === "string" ? value.trim() : value;
     if (!rawValue) return "";
-
     const rawDate = rawValue instanceof Date ? rawValue.toISOString() : String(rawValue);
     const datePart = rawDate.includes("T") ? rawDate.split("T")[0] : rawDate;
     const [year, month, day] = datePart.split("-").map(Number);
-
     if (!year || !month || !day) return "";
     return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   };
@@ -63,20 +63,18 @@ export default function AccountPage() {
   const getComparableDate = (value) => {
     const dateValue = getDateInputValue(value);
     if (!dateValue) return null;
-
     const [year, month, day] = dateValue.split("-").map(Number);
     return new Date(year, month - 1, day);
   };
 
   const getNormalizedSeries = (series) => {
-    if (!series) return "";
+    if (!series) return "UNASSIGNED";
     return String(series).trim().toUpperCase();
   };
 
   const formatDisplayDate = (value) => {
     const parsedDate = getComparableDate(value);
     if (!parsedDate) return "-";
-
     return parsedDate.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
@@ -99,49 +97,21 @@ export default function AccountPage() {
   };
 
   useEffect(() => {
-    const loadAccountRecords = async () => {
-      try {
-        const response = await fetch("/api/account");
-        const data = await response.json();
-        if (data.success) {
-          setAccountRecords(data.data);
-        }
-      } catch (error) {
-        toast.error("Failed to fetch Account records");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAccountRecords();
+    fetchAccountRecords();
   }, []);
 
   const validateForm = () => {
     const newErrors = {};
-
-    // Status validation
-    if (!formData.status) {
-      newErrors.status = "Status is required";
-    }
-
-    // Date time validation
-    if (!formData.date_time) {
-      newErrors.date_time = "Date and time is required";
-    }
-
-    // Payment type validation
-    if (!formData.payment_type) {
-      newErrors.payment_type = "Payment type is required";
-    }
+    if (!formData.status) newErrors.status = "Status is required";
+    if (!formData.date_time) newErrors.date_time = "Date and time is required";
+    if (!formData.payment_type) newErrors.payment_type = "Payment type is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       const url = "/api/account";
@@ -166,17 +136,12 @@ export default function AccountPage() {
       const data = await response.json();
 
       if (data.success) {
-
-        // DAILY HISAB ENTRY CREATE
         if (!editingAccount) {
           const paidAmount = Number.parseFloat(formData.pending_amount || 0);
-
           if (Number.isFinite(paidAmount) && paidAmount > 0) {
             await fetch("/api/daily-hisab", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 date: getDateInputValue(formData.date_time),
                 description: `${formData.name} Account Entry`,
@@ -187,13 +152,7 @@ export default function AccountPage() {
           }
         }
 
-        toast.success(data.message ||
-          (editingAccount
-            ? "Account record updated successfully!"
-            : "Account record added successfully!"
-          )
-        );
-
+        toast.success(data.message || (editingAccount ? "Account record updated successfully!" : "Account record added successfully!"));
         resetForm();
         fetchAccountRecords();
         setShowForm(false);
@@ -205,99 +164,132 @@ export default function AccountPage() {
     }
   };
 
-  const filteredAccounts = accountRecords.filter((account) => {
-    const series = getNormalizedSeries(account.number_series);
+  const filteredAccounts = useMemo(() => {
+    return accountRecords.filter((account) => {
+      const series = getNormalizedSeries(account.number_series);
 
-    // Module Filter
-    if (moduleFilter !== "All") {
-      if (moduleFilter === "Loan" && !series.startsWith("L-")) {
+      if (moduleFilter !== "All") {
+        if (moduleFilter === "Loan" && !series.startsWith("L-")) return false;
+        if (moduleFilter === "GST" && !series.startsWith("G-")) return false;
+        if (moduleFilter === "Income Tax" && !series.startsWith("I-")) return false;
+      }
+
+      if (statusFilter !== "ALL" && account.status !== statusFilter) {
         return false;
       }
 
-      if (moduleFilter === "GST" && !series.startsWith("G-")) {
-        return false;
-      }
-
-      if (moduleFilter === "Income Tax" && !series.startsWith("I-")) {
-        return false;
-      }
-    }
-
-    // Status Filter
-    if (statusFilter !== "ALL" && account.status !== statusFilter) {
-      return false;
-    }
-
-    // Search Filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-
-      return (
-        account.number_series?.toString().toLowerCase().includes(query) ||
-        account.name?.toLowerCase().includes(query) ||
-        account.phone_no?.toLowerCase().includes(query)
-      );
-    }
-
-    return true;
-  });
-
-  const groupedAccountEntries = Object.entries(
-    filteredAccounts.reduce((groups, account) => {
-      const series = getNormalizedSeries(account.number_series) || "UNASSIGNED";
-
-      if (!groups[series]) groups[series] = [];
-      groups[series].push(account);
-
-      return groups;
-    }, {})
-  )
-    .map(([series, accounts]) => ({
-      series,
-      accounts: [...accounts].sort((a, b) => {
-        // COMPLETE entry છેલ્લે બતાવો
-        if (a.status === "COMPLETE" && b.status !== "COMPLETE") return 1;
-        if (a.status !== "COMPLETE" && b.status === "COMPLETE") return -1;
-
-        const aDate = getComparableDate(a.due_date);
-        const bDate = getComparableDate(b.due_date);
-
-        // જેની Due Date નથી તેને છેલ્લે બતાવો
-        if (!aDate && !bDate) return 0;
-        if (!aDate) return 1;
-        if (!bDate) return -1;
-
-        // સૌથી નજીકની Due Date સૌથી ઉપર
-        return aDate - bDate;
-      }),
-      totalComplete: accounts.reduce(
-        (sum, acct) => sum + parseFloat(acct.complete_amount || 0),
-        0
-      ),
-      totalPending: accounts.reduce(
-        (sum, acct) => sum + parseFloat(acct.pending_amount || 0),
-        0
-      ),
-    }))
-    .sort((a, b) => {
-      const getNearestDueDate = (accounts) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const dates = accounts
-          .filter(acc => String(acc.status).toUpperCase() !== "COMPLETE")
-          .map(acc => getComparableDate(acc.due_date))
-          .filter(Boolean);
-
-        if (!dates.length) return Number.MAX_SAFE_INTEGER;
-
-        return Math.min(
-          ...dates.map(date => Math.abs(date.getTime() - today.getTime()))
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        return (
+          account.number_series?.toString().toLowerCase().includes(query) ||
+          account.name?.toLowerCase().includes(query) ||
+          account.phone_no?.toLowerCase().includes(query) ||
+          account.note?.toLowerCase().includes(query)
         );
-      };
+      }
 
-      return getNearestDueDate(a.accounts) - getNearestDueDate(b.accounts);
+      return true;
     });
+  }, [accountRecords, moduleFilter, statusFilter, searchQuery]);
+
+  // Grouped and sorted series list: Closest Due Date (e.g. 3 days remaining) on TOP
+  const groupedSeriesList = useMemo(() => {
+    const groups = {};
+
+    filteredAccounts.forEach((account) => {
+      const seriesKey = getNormalizedSeries(account.number_series);
+      if (!groups[seriesKey]) {
+        groups[seriesKey] = {
+          seriesKey,
+          seriesNumber: account.number_series || seriesKey,
+          name: account.name,
+          phone_no: account.phone_no,
+          latestDueDate: null,
+          status: "COMPLETE",
+          note: account.note || "",
+          totalComplete: 0,
+          totalPaid: 0,
+          totalRemaining: 0,
+          entriesCount: 0,
+          records: [],
+        };
+      }
+
+      const complete = parseFloat(account.complete_amount || 0);
+      const paid = parseFloat(account.pending_amount || 0);
+      const remaining = complete - paid;
+
+      groups[seriesKey].records.push(account);
+      groups[seriesKey].totalComplete += complete;
+      groups[seriesKey].totalPaid += paid;
+      groups[seriesKey].totalRemaining += remaining;
+      groups[seriesKey].entriesCount += 1;
+
+      if (!groups[seriesKey].note && account.note) {
+        groups[seriesKey].note = account.note;
+      }
+
+      // ફક્ત જે એન્ટ્રીમાં પૈસા બાકી હોય (Remaining > 0), તેની જ સૌથી નજીકની Due Date લાવો
+      const accDueDate = getComparableDate(account.due_date);
+      const isPendingEntry = String(account.status).toUpperCase() !== 'COMPLETE' && remaining > 0;
+
+      if (accDueDate && isPendingEntry) {
+        if (!groups[seriesKey].latestDueDate) {
+          groups[seriesKey].latestDueDate = account.due_date;
+        } else {
+          const currentGroupDueDate = getComparableDate(groups[seriesKey].latestDueDate);
+          // જે Due Date સૌથી નજીક (સૌથી નાની તારીખ) હોય તેને પ્રાધાન્ય આપો
+          if (accDueDate < currentGroupDueDate) {
+            groups[seriesKey].latestDueDate = account.due_date;
+          }
+        }
+      }
+    });
+
+    // સ્ટેટસ સેટ પ્રોસેસિંગ
+    const result = Object.values(groups).map((group) => {
+      const allEntriesComplete = group.records.every(
+        (acc) =>
+          String(acc.status || "").trim().toUpperCase() === "COMPLETE" ||
+          (parseFloat(acc.complete_amount || 0) - parseFloat(acc.pending_amount || 0)) <= 0
+      );
+
+      if (allEntriesComplete) {
+        group.status = "COMPLETE";
+      } else {
+        const pendingEntry = group.records.find(
+          (acc) => (parseFloat(acc.complete_amount || 0) - parseFloat(acc.pending_amount || 0)) > 0
+        );
+        group.status = pendingEntry ? pendingEntry.status : "RECEIPT";
+      }
+
+      return group;
+    });
+
+    // 🔥 TOP SORTING LOGIC: Earliest Due Date (3 days remaining, overdue, etc.) comes FIRST
+    result.sort((a, b) => {
+      const aIsComplete = a.status === 'COMPLETE' || a.totalRemaining <= 0;
+      const bIsComplete = b.status === 'COMPLETE' || b.totalRemaining <= 0;
+
+      // 1. COMPLETE થઈ ગયેલા આઈટમ્સને હંમેશા સૌથી છેલ્લે મોકલો
+      if (aIsComplete && !bIsComplete) return 1;
+      if (!aIsComplete && bIsComplete) return -1;
+
+      // 2. પેન્ડિંગ આઈટમ્સ માટે Due Date ચકાસો
+      const dateA = getComparableDate(a.latestDueDate);
+      const dateB = getComparableDate(b.latestDueDate);
+
+      // જેની Due Date સૌથી નજીક હોય (જેમ કે 3 days remaining) તે સૌથી ઉપર આવવી જોઈએ
+      if (dateA && dateB) return dateA - dateB;
+      if (dateA && !dateB) return -1; // Due date વાળી આઈટમ ઉપર આવશે
+      if (!dateA && dateB) return 1;  // Due date વગરની આઈટમ નીચે જશે
+
+      return 0;
+    });
+
+    return result;
+  }, [filteredAccounts]);
+
   const handleEdit = (account) => {
     setEditingAccount(account);
     setFormData({
@@ -362,24 +354,22 @@ export default function AccountPage() {
     setShowForm(false);
   };
 
-  const toggleAccountDetails = async (accountId) => {
-    if (expandedAccount === accountId) {
-      setExpandedAccount(null);
-    } else {
-      setExpandedAccount(accountId);
-      // Fetch payment history for this account
-      if (!paymentHistory[accountId]) {
+  const handleSeriesGroupClick = async (group) => {
+    setSelectedSeriesGroup(group);
+
+    group.records.forEach(async (acc) => {
+      if (!paymentHistory[acc.id]) {
         try {
-          const response = await fetch(`/api/account/payments?accountId=${accountId}`);
+          const response = await fetch(`/api/account/payments?accountId=${acc.id}`);
           const data = await response.json();
           if (data.success) {
-            setPaymentHistory(prev => ({ ...prev, [accountId]: data.data }));
+            setPaymentHistory((prev) => ({ ...prev, [acc.id]: data.data }));
           }
         } catch (error) {
           console.error("Failed to fetch payment history", error);
         }
       }
-    }
+    });
   };
 
   const handleOpenPaymentModal = (e, account, payment = null) => {
@@ -387,10 +377,7 @@ export default function AccountPage() {
     setSelectedAccount(account);
     const getLocalDateString = (dateObj) => {
       const d = new Date(dateObj);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
 
     if (payment) {
@@ -431,7 +418,7 @@ export default function AccountPage() {
     }
 
     try {
-      const url = isEditingPayment ? "/api/account/payments" : "/api/account/payments";
+      const url = "/api/account/payments";
       const method = isEditingPayment ? "PUT" : "POST";
       const payload = isEditingPayment
         ? { id: editingPaymentId, amount, date: paymentFormData.date, note: paymentFormData.note, paymentType: paymentFormData.paymentType }
@@ -450,13 +437,12 @@ export default function AccountPage() {
         setShowPaymentModal(false);
         setIsEditingPayment(false);
         setEditingPaymentId(null);
-        fetchAccountRecords(); // Refresh account list to show updated paid amount
+        fetchAccountRecords();
 
-        // Refresh payment history for this account if it's expanded
         const historyResponse = await fetch(`/api/account/payments?accountId=${selectedAccount.id}`);
         const historyData = await historyResponse.json();
         if (historyData.success) {
-          setPaymentHistory(prev => ({ ...prev, [selectedAccount.id]: historyData.data }));
+          setPaymentHistory((prev) => ({ ...prev, [selectedAccount.id]: historyData.data }));
         }
       } else {
         toast.error(data.message || "Failed to add payment");
@@ -477,7 +463,7 @@ export default function AccountPage() {
   };
 
   const formatAmount = (amount) => {
-    if (amount === null || amount === undefined || amount === "") return "-";
+    if (amount === null || amount === undefined || amount === "") return "0.00";
     return parseFloat(amount).toFixed(2);
   };
 
@@ -487,7 +473,6 @@ export default function AccountPage() {
     }
 
     const parsedDueDate = getComparableDate(dueDate);
-
     if (!parsedDueDate) {
       return { label: "No due date", tone: "text-gray-500", badge: "bg-gray-100 text-gray-600" };
     }
@@ -505,13 +490,13 @@ export default function AccountPage() {
     if (diffDays < 0) {
       return {
         label: `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"} overdue`,
-        tone: "text-red-600",
-        badge: "bg-red-100 text-red-700",
+        tone: "text-red-600 font-bold",
+        badge: "bg-red-100 text-red-700 font-bold",
       };
     }
 
     if (diffDays === 0) {
-      return { label: "Due today", tone: "text-amber-600", badge: "bg-amber-100 text-amber-700" };
+      return { label: "Due today", tone: "text-amber-600 font-bold", badge: "bg-amber-100 text-amber-700 font-bold" };
     }
 
     return {
@@ -521,40 +506,20 @@ export default function AccountPage() {
     };
   };
 
-  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
-    const aDate = getComparableDate(a.due_date);
-    const bDate = getComparableDate(b.due_date);
-
-    if (!aDate && !bDate) return 0;
-    if (!aDate) return 1;
-    if (!bDate) return -1;
-
-    return aDate - bDate;
-  });
-
   const exportToExcel = () => {
-    const dataToExport = filteredAccounts
-      .filter(account => {
-        if (statusFilter !== "ALL" && account.status !== statusFilter) return false;
-        if (!searchQuery.trim()) return true;
-        const query = searchQuery.toLowerCase().trim();
-        if (account.number_series && account.number_series.toString().toLowerCase().includes(query)) return true;
-        if (account.name && account.name.toLowerCase().includes(query)) return true;
-        if (account.phone_no && account.phone_no.toLowerCase().includes(query)) return true;
-        return false;
-      })
-      .map(account => ({
-        "Series Number": account.number_series || "-",
-        "Name": account.name || "-",
-        "Phone": account.phone_no || "-",
-        "Status": account.status || "-",
-        "Total Amount": account.complete_amount || 0,
-        "Paid Amount": account.pending_amount || 0,
-        "Remaining Amount": (parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0)),
-        "Reference Name": account.reference_name || "-",
-        "Reference Phone": account.reference_phone || "-",
-        "Date": account.date_time ? new Date(account.date_time).toLocaleDateString('en-IN') : "-"
-      }));
+    const dataToExport = filteredAccounts.map(account => ({
+      "Series Number": account.number_series || "-",
+      "Name": account.name || "-",
+      "Phone": account.phone_no || "-",
+      "Status": account.status || "-",
+      "Note": account.note || "-",
+      "Total Amount": account.complete_amount || 0,
+      "Paid Amount": account.pending_amount || 0,
+      "Remaining Amount": (parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0)),
+      "Reference Name": account.reference_name || "-",
+      "Reference Phone": account.reference_phone || "-",
+      "Date": account.date_time ? new Date(account.date_time).toLocaleDateString('en-IN') : "-"
+    }));
 
     if (dataToExport.length === 0) {
       toast.warning("No records to export!");
@@ -564,24 +529,14 @@ export default function AccountPage() {
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Accounts");
-
-    // Auto size columns
-    const maxWidths = dataToExport.map(row => Object.values(row).map(val => val.toString().length));
-    const colWidths = maxWidths[0].map((_, i) => Math.max(...maxWidths.map(row => row[i])));
-    worksheet['!cols'] = colWidths.map(w => ({ wch: w + 2 }));
-
     XLSX.writeFile(workbook, `Account_Records_${statusFilter}_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}.xlsx`);
   };
 
-  const totalRemainingAmount = filteredAccounts.reduce((total, account) => {
-    return (
-      total +
-      (
-        parseFloat(account.complete_amount || 0) -
-        parseFloat(account.pending_amount || 0)
-      )
-    );
-  }, 0);
+  const totalRemainingAmount = groupedSeriesList.reduce((total, group) => total + group.totalRemaining, 0);
+
+  const currentSelectedGroup = selectedSeriesGroup
+    ? groupedSeriesList.find(g => g.seriesKey === selectedSeriesGroup.seriesKey) || selectedSeriesGroup
+    : null;
 
   if (loading) {
     return (
@@ -593,78 +548,378 @@ export default function AccountPage() {
 
   return (
     <div className="">
-      <div className="flex justify-between flex-wrap items-center mb-6">
-        {/* Status Filter */}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setStatusFilter("ALL")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "ALL"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setStatusFilter("RECEIPT")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "RECEIPT"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            Receipt
-          </button>
-          <button
-            onClick={() => setStatusFilter("COMPLETE")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "COMPLETE"
-              ? "bg-[#dfc797] text-[#17312d]"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-          >
-            Complete
-          </button>
-          {/* Search Bar */}
-          <div className="py-1 flex items-center ml-4">
-            <input
-              type="text"
-              placeholder="Search by No., Name, or Phone..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 h-8 w-72 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#dfc797]"
-            />
+      {/* Detailed Layer View */}
+      {currentSelectedGroup ? (
+        <div className="bg-white rounded-xl shadow-md p-6 animate-in fade-in duration-300">
+          <div className="flex justify-between items-center mb-6 pb-4 border-b">
+            <button
+              onClick={() => setSelectedSeriesGroup(null)}
+              className="flex items-center gap-2 bg-[#dfc797] text-[#17312d] px-4 py-2 rounded-lg font-bold hover:bg-[#f0d9ae] transition-colors shadow-sm"
+            >
+              ← Back to List
+            </button>
+            <div className="text-right">
+              <h2 className="text-xl font-bold text-[#17312d]">
+                Series Number: <span className="text-blue-700">{currentSelectedGroup.seriesNumber}</span>
+              </h2>
+              <p className="text-xs text-gray-500">Total Entries: {currentSelectedGroup.entriesCount}</p>
+            </div>
           </div>
-          <select
-            value={moduleFilter}
-            onChange={(e) => setModuleFilter(e.target.value)}
-            className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-black text-sm font-medium focus:outline-none focus:border-[#dfc797]"
-          >
-            <option value="All">All</option>
-            <option value="Loan">Loan</option>
-            <option value="GST">GST</option>
-            <option value="Income Tax">Income Tax</option>
-          </select>
-          <button
-            onClick={exportToExcel}
-            className="px-4 py-2 ml-2 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-            Export to Excel
-          </button>
-          <div className="bg-red-50 border border-red-200 flex flex-col items-center justify-center rounded-lg p-1 px-4">
-            <p className="text-2xl font-bold text-red-600">
-              ₹{formatAmount(totalRemainingAmount)}
-            </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Customer Details</h4>
+              <p className="text-sm"><span className="text-gray-500">Name:</span> <strong className="text-gray-900">{formatDisplayText(currentSelectedGroup.name, "-")}</strong></p>
+              <p className="text-sm"><span className="text-gray-500">Phone:</span> <strong className="text-gray-900">{currentSelectedGroup.phone_no || "-"}</strong></p>
+              <p className="text-sm"><span className="text-gray-500">Note:</span> <strong className="text-gray-800">{currentSelectedGroup.note || "-"}</strong></p>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Totals Summary</h4>
+              <p className="text-sm"><span className="text-gray-500">Total Complete:</span> <strong className="text-gray-900">₹{formatAmount(currentSelectedGroup.totalComplete)}</strong></p>
+              <p className="text-sm"><span className="text-gray-500">Total Paid:</span> <strong className="text-green-700">₹{formatAmount(currentSelectedGroup.totalPaid)}</strong></p>
+              <p className="text-sm"><span className="text-gray-500">Total Remaining:</span> <strong className="text-red-600">₹{formatAmount(currentSelectedGroup.totalRemaining)}</strong></p>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Earliest Due Date Info</h4>
+              <p className="text-sm text-gray-800"><span className="">Next Due:</span> <strong>{formatDisplayDate(currentSelectedGroup.latestDueDate)}</strong></p>
+              <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-bold rounded-full ${getDueDateInfo(currentSelectedGroup.latestDueDate, currentSelectedGroup.status).badge}`}>
+                {getDueDateInfo(currentSelectedGroup.latestDueDate, currentSelectedGroup.status).label || "Standard"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-md font-bold text-gray-800 mb-3 border-b pb-2">
+              All Recorded Entries for Series ({currentSelectedGroup.seriesNumber})
+            </h3>
+            <div className="overflow-x-auto border rounded-lg shadow-sm bg-white">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-100 text-xs text-gray-700 uppercase">
+                  <tr>
+                    <th className="px-4 py-3">Entry Date</th>
+                    <th className="px-4 py-3">Due Date</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Payment Type</th>
+                    <th className="px-4 py-3">Complete Amount</th>
+                    <th className="px-4 py-3">Paid Amount</th>
+                    <th className="px-4 py-3">Remaining</th>
+                    <th className="px-4 py-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {currentSelectedGroup.records
+                    .slice()
+                    .sort((a, b) => {
+                      const aIsComplete = String(a.status || '').trim().toUpperCase() === 'COMPLETE';
+                      const bIsComplete = String(b.status || '').trim().toUpperCase() === 'COMPLETE';
+
+                      // 1. COMPLETE એન્ટ્રીઓને સૌથી છેલ્લે મોકલવા માટે
+                      if (aIsComplete && !bIsComplete) return 1;
+                      if (!aIsComplete && bIsComplete) return -1;
+
+                      // 2. પેન્ડિંગ એન્ટ્રીઓને Due Date મુજબ સોર્ટ કરવા માટે
+                      const dateA = getComparableDate(a.due_date);
+                      const dateB = getComparableDate(b.due_date);
+
+                      if (dateA && dateB) return dateA - dateB;
+                      if (dateA && !dateB) return -1;
+                      if (!dateA && dateB) return 1;
+
+                      return 0;
+                    })
+                    .map((acc) => {
+                      const rem = parseFloat(acc.complete_amount || 0) - parseFloat(acc.pending_amount || 0);
+                      const entryDueInfo = getDueDateInfo(acc.due_date, acc.status);
+
+                      return (
+                        <React.Fragment key={acc.id}>
+                          <tr className="hover:bg-blue-50/50 transition-colors">
+                            <td className="px-4 py-3 font-medium text-gray-900">{formatDisplayDate(acc.date_time)}</td>
+                            <td className="px-4 py-3">
+                              {String(acc.status || '').trim().toUpperCase() === 'COMPLETE' ? (
+                                <span className="text-gray-400 text-xs">-</span>
+                              ) : (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className={`inline-flex w-fit px-2 py-0.5 text-[11px] font-semibold rounded-full ${entryDueInfo.badge}`}>
+                                    {formatDisplayDate(acc.due_date)}
+                                  </span>
+                                  <span className={`text-[10px] ${entryDueInfo.tone}`}>
+                                    {entryDueInfo.label}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${acc.status === "PAYMENT" ? "bg-yellow-100 text-yellow-800" :
+                                acc.status === "RECEIPT" ? "bg-blue-100 text-blue-800" :
+                                  acc.status === "COMPLETE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                }`}>
+                                {acc.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-700">{acc.payment_type || "-"}</td>
+                            <td className="px-4 py-3 font-semibold text-gray-900">₹{formatAmount(acc.complete_amount)}</td>
+                            <td className="px-4 py-3 text-green-700 font-semibold">₹{formatAmount(acc.pending_amount)}</td>
+                            <td className="px-4 py-3 text-red-600 font-bold">₹{formatAmount(rem)}</td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex justify-center gap-1">
+                                <button
+                                  onClick={(e) => handleOpenPaymentModal(e, acc)}
+                                  className="px-2.5 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-semibold"
+                                >
+                                  Paid
+                                </button>
+                                <button
+                                  onClick={() => handleEdit(acc)}
+                                  className="px-2.5 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-semibold"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(acc.id)}
+                                  className="px-2.5 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-semibold"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {paymentHistory[acc.id] && paymentHistory[acc.id].length > 0 && (
+                            <tr>
+                              <td colSpan="9" className="px-6 py-2 bg-gray-50 border-t border-b">
+                                <div className="text-xs">
+                                  <span className="font-bold text-gray-700">Payment Breakdown ({formatDisplayDate(acc.date_time)}):</span>
+                                  <div className="flex gap-4 mt-1 flex-wrap">
+                                    {paymentHistory[acc.id].map((p) => (
+                                      <div key={p.id} className="bg-white px-3 py-1 rounded border border-gray-200 text-gray-700">
+                                        {formatDateTime(p.payment_date)} - <strong className="text-green-700">₹{formatAmount(p.amount)}</strong> ({p.payment_type})
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+
+                          <tr>
+                            {acc.note && (
+                              <td colSpan="9" className="px-6 py-2 bg-gray-50 border-t text-gray-800 text-sm">
+                                <span className="font-semibold">Note:</span> {acc.note}
+                              </td>
+                            )}
+                          </tr>
+                        </React.Fragment>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-4 py-2 sm:mt-0 mt-5 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors"
-        >
-          Add
-        </button>
-      </div>
+      ) : (
+        /* Main List View */
+        <>
+          <div className="flex justify-between flex-wrap items-center mb-6">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setStatusFilter("ALL")}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "ALL"
+                  ? "bg-[#dfc797] text-[#17312d]"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setStatusFilter("RECEIPT")}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "RECEIPT"
+                  ? "bg-[#dfc797] text-[#17312d]"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+              >
+                Receipt
+              </button>
+              <button
+                onClick={() => setStatusFilter("COMPLETE")}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${statusFilter === "COMPLETE"
+                  ? "bg-[#dfc797] text-[#17312d]"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+              >
+                Complete
+              </button>
+
+              <div className="py-1 flex items-center ml-4">
+                <input
+                  type="text"
+                  placeholder="Search by No., Name, Phone, or Note..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 h-8 w-72 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#dfc797]"
+                />
+              </div>
+
+              <select
+                value={moduleFilter}
+                onChange={(e) => setModuleFilter(e.target.value)}
+                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-black text-sm font-medium focus:outline-none focus:border-[#dfc797]"
+              >
+                <option value="All">All</option>
+                <option value="Loan">Loan</option>
+                <option value="GST">GST</option>
+                <option value="Income Tax">Income Tax</option>
+              </select>
+
+              <button
+                onClick={exportToExcel}
+                className="px-4 py-2 ml-2 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                Export to Excel
+              </button>
+
+              <div className="bg-red-50 border border-red-200 flex flex-col items-center justify-center rounded-lg p-1 px-4">
+                <p className="text-2xl font-bold text-red-600">
+                  ₹{formatAmount(totalRemainingAmount)}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 sm:mt-0 mt-5 bg-[#dfc797] text-[#17312d] rounded-lg hover:bg-[#f0d9ae] font-semibold transition-colors"
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Table List */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      No.
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Phone
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Due Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Remaining Amount
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Entries
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="">
+                  {groupedSeriesList.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                        No {statusFilter.toLowerCase()} account records found.
+                      </td>
+                    </tr>
+                  ) : (
+                    groupedSeriesList.map((group) => {
+                      const dueInfo = getDueDateInfo(group.latestDueDate, group.status);
+                      const hasNote = group.note && group.note.trim() !== "";
+
+                      return (
+                        <React.Fragment key={group.seriesKey}>
+                          {/* Main Row */}
+                          <tr
+                            className={`hover:bg-amber-50/40 cursor-pointer transition-colors ${!hasNote ? 'border-b border-gray-200' : ''}`}
+                            onClick={() => handleSeriesGroupClick(group)}
+                          >
+                            <td className="px-4 py-3 text-sm font-bold text-[#1c3430]">
+                              {group.seriesNumber}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-bold text-gray-800">
+                              {formatDisplayText(group.name, "-")}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              <a
+                                href={`tel:${group.phone_no}`}
+                                className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {group.phone_no || "-"}
+                              </a>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`px-2 py-1 text-xs font-semibold rounded-full ${group.status === "PAYMENT"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : group.status === "RECEIPT"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : group.status === "COMPLETE"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}
+                              >
+                                {group.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {String(group.status || '').trim().toUpperCase() === 'COMPLETE' ? (
+                                <span className="text-gray-400 text-xs">-</span>
+                              ) : (
+                                <div className="flex flex-col gap-1">
+                                  <span className={`inline-flex w-fit px-2 py-1 text-[11px] font-semibold rounded-full ${dueInfo.badge}`}>
+                                    {formatDisplayDate(group.latestDueDate)}
+                                  </span>
+                                  <span className={`text-[11px] font-medium ${dueInfo.tone}`}>
+                                    {dueInfo.label}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-bold">
+                              <p className={group.totalRemaining > 0 ? "text-red-600" : "text-green-600"}>
+                                ₹{formatAmount(group.totalRemaining)}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="bg-[#dfc797] text-[#17312d] text-xs font-bold px-3 py-1.5 rounded-md hover:bg-[#f0d9ae] transition-colors">
+                                View ({group.entriesCount})
+                              </span>
+                            </td>
+                          </tr>
+
+                          {/* Note Row */}
+                          {hasNote && (
+                            <tr
+                              className="hover:bg-amber-50/40 cursor-pointer transition-colors border-b border-gray-200"
+                              onClick={() => handleSeriesGroupClick(group)}
+                            >
+                              <td colSpan="7" className="px-4 pt-1 pb-3 text-sm text-gray-800 bg-gray-50/30">
+                                <span className="font-bold">Note: </span>
+                                <span>{group.note}</span>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Form Modal */}
       {showForm && (
@@ -678,292 +933,6 @@ export default function AccountPage() {
         />
       )}
 
-      {/* Account Records Table */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  No.
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Phone
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Due Date
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Remaining Amount
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {groupedAccountEntries.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan="7"
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    No {statusFilter.toLowerCase()} account records found. Click &quot;Add New Account&quot; to get started.
-                  </td>
-                </tr>
-              ) : (
-                groupedAccountEntries.map((group) => (
-                  <React.Fragment key={group.series}>
-                    <tr className="bg-[#f9f6ef] border-t border-b border-[#dfc797]">
-                      <td colSpan="7" className="px-4 py-3 text-sm font-semibold text-[#17312d]">
-                        Series: {group.series} • Accounts: {group.accounts.length} • Total Paid: ₹{formatAmount(group.totalPending)} • Total Amount: ₹{formatAmount(group.totalComplete)} • Remaining: ₹{formatAmount(group.totalComplete - group.totalPending)}
-                      </td>
-                    </tr>
-                    {group.accounts.map((account) => (
-                      <React.Fragment key={account.id}>
-                        <tr
-                          className="hover:bg-gray-50 cursor-pointer"
-                          onClick={() => toggleAccountDetails(account.id)}
-                        >
-                          <td className="px-4 py-3 text-sm font-medium text-[#1c3430]">
-                            {account.number_series}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-bold text-gray-700">
-                            {formatDisplayText(account.name, "-")}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            <a
-                              href={`tel:${account.phone_no}`}
-                              className="text-[#17312d] hover:text-[#dfc797] hover:underline font-medium"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {account.phone_no}
-                            </a>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`px-2 py-1 text-xs font-semibold rounded-full ${account.status === "PAYMENT"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : account.status === "RECEIPT"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : account.status === "COMPLETE"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                            >
-                              {account.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            {(() => {
-                              const dueInfo = getDueDateInfo(account.due_date, account.status);
-                              if (String(account.status || '').trim().toUpperCase() === 'COMPLETE') {
-                                return <span className="text-gray-400 text-xs">-</span>;
-                              }
-                              return (
-                                <div className="flex flex-col gap-1">
-                                  <span className={`inline-flex w-fit px-2 py-1 text-[11px] font-semibold rounded-full ${dueInfo.badge}`}>
-                                    {formatDisplayDate(account.due_date)}
-                                  </span>
-                                  <span className={`text-[11px] font-medium ${dueInfo.tone}`}>
-                                    {dueInfo.label}
-                                  </span>
-                                </div>
-                              );
-                            })()}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
-                              ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={(e) => handleOpenPaymentModal(e, account)}
-                                className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium transition-colors"
-                              >
-                                Paid
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEdit(account);
-                                }}
-                                className="px-3 py-1 text-xs bg-[#dfc797] text-[#17312d] rounded hover:bg-[#f0d9ae] font-medium transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(account.id);
-                                }}
-                                className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {account.note && (
-                          <tr
-                            className={`cursor-pointer transition-colors`}
-                            onClick={() => toggleLoanDetails(account.id)}
-                          >
-                            <td colSpan="7" className="px-4 pb-3 pt-1 text-xs">
-                              <span className="font-bold text-gray-900">Note: </span>
-                              <span className="font-semibold text-gray-800">{formatDisplayText(account.note, "-")}</span>
-                            </td>
-                          </tr>
-                        )}
-                        {expandedAccount === account.id && (
-                          <tr className="animate-in slide-in-from-top-1 duration-300">
-                            <td colSpan="7" className="px-0 py-0">
-                              <div className="bg-gray-50 border-l-4 border-[#dfc797] p-6 shadow-inner transform transition-all duration-300 ease-in-out overflow-hidden">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                  {/* Personal Information */}
-                                  <div className="animate-in slide-in-from-top-2 duration-500 delay-100">
-                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Personal Information</h4>
-                                    <div className="space-y-2">
-                                      <div>
-                                        <p className="text-xs text-gray-500">Name</p>
-                                        <p className="font-medium text-gray-900">{formatDisplayText(account.name, "-")}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Phone</p>
-                                        <p className="font-medium text-gray-900">{account.phone_no}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Status</p>
-                                        <span
-                                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${account.status === "PAYMENT"
-                                            ? "bg-yellow-100 text-yellow-800"
-                                            : account.status === "RECEIPT"
-                                              ? "bg-blue-100 text-blue-800"
-                                              : account.status === "COMPLETE"
-                                                ? "bg-green-100 text-green-800"
-                                                : "bg-gray-100 text-gray-800"
-                                            }`}
-                                        >
-                                          {account.status}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Due Date</p>
-                                        <p className="font-medium text-gray-900">{formatDisplayDate(account.due_date)}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Amount Information */}
-                                  <div className="animate-in fade-in-50 duration-500 delay-300">
-                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Amount Information</h4>
-                                    <div className="space-y-2">
-                                      <div>
-                                        <p className="text-xs text-gray-500">Paid Amount</p>
-                                        <p className="font-medium text-gray-900">₹{formatAmount(account.pending_amount)}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Complete Amount</p>
-                                        <p className="font-medium text-gray-900">₹{formatAmount(account.complete_amount)}</p>
-                                      </div>
-                                      <div className="pt-1 border-t border-gray-200">
-                                        <p className="text-xs text-gray-500">Remaining Amount</p>
-                                        <p className={`font-bold ${parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0) > 0 ? "text-red-600" : "text-green-600"}`}>
-                                          ₹{formatAmount(parseFloat(account.complete_amount || 0) - parseFloat(account.pending_amount || 0))}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Reminder</p>
-                                        <p className={`font-medium ${getDueDateInfo(account.due_date).tone}`}>
-                                          {getDueDateInfo(account.due_date).label}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Reference Information */}
-                                  <div className="animate-in fade-in-50 duration-500 delay-300">
-                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Reference Information</h4>
-                                    <div className="space-y-2">
-                                      <div>
-                                        <p className="text-xs text-gray-500">Reference Name</p>
-                                        <p className="font-medium text-gray-900">{account.reference_name || "-"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-gray-500">Reference Phone</p>
-                                        <p className="font-medium text-gray-900">{account.reference_phone || "-"}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Payment History */}
-                                  <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-4 animate-in fade-in-50 duration-500 delay-400">
-                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 border-t pt-4">Payment History</h4>
-                                    <div className="overflow-x-auto">
-                                      <table className="w-full text-sm text-left text-gray-500">
-                                        <thead className="text-xs text-gray-700 uppercase bg-gray-100">
-                                          <tr>
-                                            <th className="px-4 py-2">Date</th>
-                                            <th className="px-4 py-2">Amount</th>
-                                            <th className="px-4 py-2">Payment Type</th>
-                                            <th className="px-4 py-2">Note</th>
-                                            <th className="px-4 py-2">Actions</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {paymentHistory[account.id] && paymentHistory[account.id].length > 0 ? (
-                                            paymentHistory[account.id].map((payment) => (
-                                              <tr key={payment.id} className="bg-white border-b hover:bg-gray-50">
-                                                <td className="px-4 py-2">{formatDateTime(payment.payment_date)}</td>
-                                                <td className="px-4 py-2 font-medium text-gray-900">₹{formatAmount(payment.amount)}</td>
-                                                <td className="px-4 py-2 text-xs font-semibold">
-                                                  <span className={`px-2 py-1 rounded-full ${payment.payment_type === 'CASH' ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}`}>
-                                                    {payment.payment_type}
-                                                  </span>
-                                                </td>
-                                                <td className="px-4 py-2">{payment.note || "-"}</td>
-                                                <td className="px-4 py-2">
-                                                  <button
-                                                    onClick={(e) => handleOpenPaymentModal(e, account, payment)}
-                                                    className="text-blue-600 hover:text-blue-800 font-medium"
-                                                  >
-                                                    Edit
-                                                  </button>
-                                                </td>
-                                              </tr>
-                                            ))
-                                          ) : (
-                                            <tr>
-                                              <td colSpan="5" className="px-4 py-4 text-center text-gray-400">No payment records found.</td>
-                                            </tr>
-                                          )}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </React.Fragment>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       {/* Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/50 z-60 flex items-center justify-center p-4">
@@ -974,7 +943,7 @@ export default function AccountPage() {
             <div className="space-y-1 mb-4">
               <p className="text-sm text-gray-600">Customer: <span className="font-semibold">{selectedAccount?.name}</span></p>
               <p className="text-sm text-gray-600">
-                {isEditingPayment ? "Current Account Balance: " : "Remaining Balance: "}
+                {isEditingPayment ? "Current Balance: " : "Remaining Balance: "}
                 <span className="font-bold text-red-600">
                   ₹{formatAmount(
                     isEditingPayment
