@@ -1,5 +1,5 @@
 import { db } from '../../../../lib/firebase';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, setDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 import { resolveAccountStatus } from '../../../../lib/accountStatus.mjs';
 
@@ -102,6 +102,62 @@ export async function POST(request) {
     console.error('Error adding payment:', error);
     return NextResponse.json(
       { success: false, message: 'Failed to add payment' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Remove a payment and adjust related account totals
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'Payment ID is required' }, { status: 400 });
+    }
+
+    const paymentRef = doc(db, 'account_payments', id);
+    const paymentSnap = await getDoc(paymentRef);
+
+    if (!paymentSnap.exists()) {
+      return NextResponse.json({ success: false, message: 'Payment record not found' }, { status: 404 });
+    }
+
+    const paymentData = paymentSnap.data();
+    const accountId = paymentData.account_id;
+
+    await deleteDoc(paymentRef);
+
+    if (accountId) {
+      const accountRef = doc(db, 'accounts', accountId);
+      const accountSnap = await getDoc(accountRef);
+      if (accountSnap.exists()) {
+        const accountData = accountSnap.data();
+        const currentPaid = parseFloat(accountData.pending_amount || 0);
+        const removedAmount = parseFloat(paymentData.amount || 0);
+        const totalAmount = parseFloat(accountData.complete_amount || 0);
+        const newPaidAmount = Math.max(0, currentPaid - removedAmount);
+
+        const newStatus = resolveAccountStatus({
+          status: accountData.status,
+          pendingAmount: newPaidAmount,
+          completeAmount: totalAmount,
+        });
+
+        await updateDoc(accountRef, {
+          pending_amount: newPaidAmount,
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        });
+      }
+    }
+
+    return NextResponse.json({ success: true, message: 'Payment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    return NextResponse.json(
+      { success: false, message: 'Failed to delete payment' },
       { status: 500 }
     );
   }

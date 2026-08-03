@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import AccountForm from "../../../components/AccountForm";
 import { formatDisplayText } from "../../../utils/formatText";
-import { Edit, EditIcon } from "lucide-react";
+import { Delete, Edit, EditIcon, Trash } from "lucide-react";
 
 export default function AccountPage() {
   const [accountRecords, setAccountRecords] = useState([]);
@@ -453,6 +453,34 @@ export default function AccountPage() {
     }
   };
 
+  const handleDeletePayment = async (e, payment) => {
+    if (e) e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this payment?")) return;
+
+    try {
+      const response = await fetch(`/api/account/payments?id=${payment.id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Payment deleted successfully!");
+        fetchAccountRecords();
+        if (payment.account_id) {
+          const historyResponse = await fetch(`/api/account/payments?accountId=${payment.account_id}`);
+          const historyData = await historyResponse.json();
+          if (historyData.success) {
+            setPaymentHistory((prev) => ({ ...prev, [payment.account_id]: historyData.data }));
+          }
+        }
+      } else {
+        toast.error(data.message || "Failed to delete payment");
+      }
+    } catch (error) {
+      toast.error("Network error");
+    }
+  };
+
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return "-";
     const date = new Date(dateTimeString);
@@ -750,14 +778,22 @@ export default function AccountPage() {
                                           <div className="text-sm font-bold text-green-700">
                                             ₹{formatAmount(p.amount)}
                                           </div>
+                                          <div className="flex items-center gap-1">
+                                            {/* Actions */}
+                                            <button
+                                              onClick={(e) => handleOpenPaymentModal(e, acc, p)}
+                                              className="px-2 py-1 text-[11px] bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 font-semibold"
+                                            >
+                                              <EditIcon className="w-3.5 h-3.5" />
+                                            </button>
 
-                                          {/* Actions */}
-                                          <button
-                                            onClick={(e) => handleOpenPaymentModal(e, acc, p)}
-                                            className="px-2 py-1 text-[11px] bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 font-semibold"
-                                          >
-                                            <EditIcon className="w-3.5 h-3.5" />
-                                          </button>
+                                            <button
+                                              onClick={(e) => handleDeletePayment(e, p)}
+                                              className="px-2 py-1 text-[11px] bg-red-100 text-red-700 rounded hover:bg-red-200 font-semibold"
+                                            >
+                                              <Trash className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
                                         </div>
 
                                         {/* Single Line Payment Note with Hover Tooltip */}
